@@ -1,0 +1,63 @@
+
+
+
+Arduino scheint mir schon eher technisch orientiert zu sein. Die nötigen Sensoren lassen sich sicher alle montieren.
+
+Nächster Schritt: Schauen, wie man solche Sensoren an einen PI bekommt
+
+
+
+https://www.youtube.com/watch?v=0wAY3DYihyg&list=PLAB63281B90FB376E
+
+"ich nutze diese ESP8266, Arduino und RapPis"
+        http://www.mikrocontroller.net/articles/ESP8266
+
+
+http://www.jensd.de/
+
+https://www.youtube.com/user/MrJerady
+
+
+https://www.kompf.de/weather/pionewiremini.html
+
+
+für mqtt:
+http://mqttfx.org/
+
+
+
+arduino wlan: 
+        https://www.youtube.com/watch?v=uM_wBCD3PxY
+        https://www.youtube.com/watch?v=ayF4Oymf08k
+
+
+
+SENSOREN
+------------------------------
+- Distanz
+        https://www.youtube.com/watch?v=iNXfADw0M9Y
+        https://www.amazon.de/Aukru-Ultraschall-HC-SR04-Distance-Raspberry/dp/B00R2U8HK6/ref=sr_1_1?ie=UTF8&qid=1466432479&sr=8-1&keywords=distance+sensor
+
+- Temperatur
+- Luftdruck
+- Luftfeuchtigkeit
+- Gas
+
+- Bewegungssensor
+- GPS
+- Gyroskop
+- Infrarot
+- Radio
+- Laser
+- Durchflussmesser
+- Wiegedruck
+- Fotowiderstand
+- Motoren
+
+- Drehpoti
+- Joystick
+
+- Display
+- 7-Segment-Anzeige
+
+
