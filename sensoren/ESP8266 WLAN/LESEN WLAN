@@ -1,0 +1,47 @@
+
+
+
+Die Firmware des WLAN-Modules habe ich zuerst geflashed
+
+	! zum Flashen muss ein spezielles Kabel (Gelb) an Ground gepinnt sein!
+
+		- Die Software "esptool" flashed die Firmware
+		- Ich habe die Firmware "v1.3.0.2 AT Firmware.bin" installiert, habe ich in einem Wiki gefunden
+
+Befehl zum flashen:
+	
+	sudo pytho esptool/esptool.py --port /dev/ttyACM0 write_flash 0x00000 c1.3.0.2\ AT\ Firmware.bin
+
+	! ttyACM0 kann sich ändern z.B. nach 1.
+	
+Wenns mal nicht klappt, ein paar mal Resetten und nochmal probieren.
+
+Danach kann über den Serial Monitor kommuniziert werden
+
+		- Baud-Rate: 115200 Baud
+		- Sowohl NL als auch CR
+		
+	Befehle:
+	
+		AT					-> Check sollte "OK" liefern
+		AT+GMR				-> Firmware Version
+		AT+CWMODE?			-> Zeigt Modus an. 2 = WLAN Access Point, 1 = Client
+		AT+CWMODE=1			-> Setzt Modus auf 1 (Client)
+		AT+CWLAP			-> Zeigt alle WLANs an
+		
+			+CWLAP:(3,"WLAN-798",-89,"34:81:c4:1f:f2:a7",11,-61)
+			Verschlüsseling, SID, Signalstärke, MAC, Channel, ?
+
+		AT+CWJAP=<sid>,<pw>	-> Mit WLAN verbinden
+			AT+CWJAP="Kfb_Outpost","tobiasSCHABERundNADINEseeger"
+		AT+CIFSR			-> Liefert IP Adresse/MAC Adresse
+		
+
+
+http://blue-pc.net/2015/01/31/esp8266-erste-gehversuche/		
+
+https://www.youtube.com/watch?v=trWT7VDBEyg
+
+https://www.dinotools.de/2015/07/06/esp8266-erste-schritte/
+
+https://www.dinotools.de/2015/07/06/esp8266-at-firmware-aktualisieren/
