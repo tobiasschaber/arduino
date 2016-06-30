@@ -1,0 +1,21 @@
+    reset causes:
+        0:
+        1: normal boot
+        2: reset pin
+        3: software reset
+        4: watchdog reset
+
+    boot device:
+        0:
+        1: ram
+        3: flash - See more at: http://www.esp8266.com/viewtopic.php?p=2096#p2112
+
+
+
+ ets Jan  8 2013,rst cause:4, boot mode:(3,6) 
+
+BEDEUTET:
+
+- watchdog reset (4)
+- 
+

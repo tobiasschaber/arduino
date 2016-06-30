@@ -10,7 +10,7 @@ Die Firmware des WLAN-Modules habe ich zuerst geflashed
 
 Befehl zum flashen:
 	
-	sudo pytho esptool/esptool.py --port /dev/ttyACM0 write_flash 0x00000 c1.3.0.2\ AT\ Firmware.bin
+	sudo python esptool/esptool.py --port /dev/ttyACM0 write_flash 0x00000 v1.3.0.2\ AT\ Firmware.bin
 
 	! ttyACM0 kann sich ändern z.B. nach 1.
 	
@@ -35,8 +35,22 @@ Danach kann über den Serial Monitor kommuniziert werden
 		AT+CWJAP=<sid>,<pw>	-> Mit WLAN verbinden
 			AT+CWJAP="Kfb_Outpost","tobiasSCHABERundNADINEseeger"
 		AT+CIFSR			-> Liefert IP Adresse/MAC Adresse
-		
+	
 
+Arduino Library:
+https://github.com/itead/ITEADLIB_Arduino_WeeESP8266	
+
+VErbindungsaufbau:
+http://thomaspfeifer.net/esp8266_wlan_seriell_modul_at_kommandos.htm
+
+
+VIELE RESETS: http://internetofhomethings.com/homethings/?p=396
+
+Gute Übersicht über das Modul:
+http://www.msxfaq.de/sonst/bastelbude/esp8266.htm
+
+Stromversorgung:
+https://blog.silvertech.at/esp8266-stromversorgung-3-3v-netzteil-mit-ld1117-ld33v/
 
 http://blue-pc.net/2015/01/31/esp8266-erste-gehversuche/		
 
