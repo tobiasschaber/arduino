@@ -37,7 +37,7 @@ BH1750FVI LightSensor;
 // Variable für Lichtintensität
 uint16_t Light_Intensity = 0;
 
-int lcdWaitingTime = 1200;
+int lcdWaitingTime = 400;
 
 /* define when the heat LED will switch off (min) or has maximum brightness (max) */
 int heatLEDmin = 20;
@@ -47,6 +47,8 @@ int heatLEDmax = 40;
 int nightLEDmin = 0;
 int nightLEDmax = 200;
 
+// hold IP to show it sometimes
+String myip;
 
 // anzahl messungen pro durchlauf
 int loopCount = 20;
@@ -121,10 +123,16 @@ void setup() {
     printOutStatus("ERR");
   }
 
-  printOutMessage("WLAN INIT..", "FINISHED INIT!");
+  /* extract only the IP from the get-IP-message */
+  String ip = wifi.getLocalIP().c_str();
+  Serial.println("-----------------------------------start");
+  Serial.println(ip);
+  Serial.println("-----------------------------------then");
+  String ip2 = ip.substring(14);
+  
+  myip = ip2.substring(0, ip2.indexOf('"'));
 
-  delay(5000);
-
+ 
   currentIteration = 0;
 
   /* set PIN allocation */
@@ -154,16 +162,25 @@ void loop() {
   Light_Intensity = LightSensor.GetLightIntensity();
 
   // calculate which phase to show on the LCD display (Temp/Hum or Lux)
-  if (currentIteration == loopCount) {
+  if (currentIteration >= loopCount) {
     currentIteration = 0;
 
-    // switch phasis between "show temperature on LCD" and "show lux on LCD"
-    if (mode == 0) {
-      mode = 1;
-    } else {
-      mode = 0;
-    }
 
+    if (mode == 2) {
+      mode = 5;
+    } else {
+      if (mode == 1) {
+        mode = 2;
+      } else {
+          if(mode == 0) {
+            mode = 1;
+          }
+      }
+    }
+  }
+
+  if(mode == 5) {
+    mode = 0;
   }
 
   currentIteration = currentIteration + 1;
@@ -196,6 +213,13 @@ void loop() {
       lcd.print(" %");
 
     }
+  }
+
+  if (mode == 2) {
+      printOutMessage("YOUR IP:", myip);
+      delay(5000);
+      // exit loop because we do not want to show the IP too long.
+      currentIteration = loopCount;
   }
 
   //  ******************************************************** IN ALL PHASES, ADJUST HEAT LED
@@ -278,7 +302,7 @@ void printOutStatus(String status) {
 
 
 void pushValuesToBackend() {
-
+/*
     uint8_t buffer[1024] = {0};
 
     if (wifi.createTCP(HOST_NAME, HOST_PORT)) {
@@ -305,6 +329,8 @@ void pushValuesToBackend() {
         Serial.print("release tcp err\r\n");
     }
 
-  
+*/  
 }
+
+
 
