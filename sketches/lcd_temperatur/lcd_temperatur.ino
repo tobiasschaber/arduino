@@ -1,12 +1,11 @@
 /*
- * SKETCH FOR MY SELFMADE LCD-SHIELD AND MY SELFMADE SENSOR-SHIELD!
- * 
- * full sketch for measuring temperature, humidity and brightness 
- * and displaying it on 2 LEDs and one LCD display.
- * you can just leave out the two LEDs and only use the LCD display.
- 
- */
+   SKETCH FOR MY SELFMADE LCD-SHIELD AND MY SELFMADE SENSOR-SHIELD!
 
+   full sketch for measuring temperature, humidity and brightness
+   and displaying it on 2 LEDs and one LCD display.
+   you can just leave out the two LEDs and only use the LCD display.
+
+*/
 
 // library for light sensor
 #include <BH1750FVI.h>
@@ -15,6 +14,7 @@
 
 // library for wlan module
 #include "ESP8266.h"
+#include <doxygen.h>
 
 // library for temperature/humidity sensor
 #include "DHT.h"
@@ -35,7 +35,9 @@ LiquidCrystal lcd(4, 6, 10, 11, 12, 13);
 BH1750FVI LightSensor;
 
 // Variable für Lichtintensität
-uint16_t Light_Intensity=0;
+uint16_t Light_Intensity = 0;
+
+int lcdWaitingTime = 1200;
 
 /* define when the heat LED will switch off (min) or has maximum brightness (max) */
 int heatLEDmin = 20;
@@ -47,10 +49,10 @@ int nightLEDmax = 200;
 
 
 // anzahl messungen pro durchlauf
-int loopCount = 40;
+int loopCount = 20;
 
 // wartezeit zwischen einzelmessungen
-int delayTime = 300;
+int delayTime = 500;
 
 // zählt die iterationen hoch
 int currentIteration = 0;
@@ -71,29 +73,60 @@ int mode = 0;
 // as the current DHT reading algorithm adjusts itself to work on faster procs.
 DHT dht(DHTPIN, DHTTYPE);
 
+
+// create some WLAN artifacts
+#define SSIDA       "codecentric"
+#define PASSWORD    "MajorTom"
+#define HOST_NAME   "www.baidu.com"
+#define HOST_PORT   (80)
 ESP8266 wifi(Serial);
+
+
 
 #define SSID     "codecentric"
 #define PASSWORD "MajorTom"
 
 void setup() {
-  Serial.println(wifi.getVersion().c_str());
+
+  Serial.begin(115200);
+
+  /* setup LCD display */
+  lcd.begin(16, 2);
+  lcd.clear();
+
+  
+  printOutMessage("WLAN INIT..", "station?");
+  if (wifi.setOprToStation()) {
+    Serial.print("to station ok\r\n");
+    printOutStatus("OK");
+  } else {
+    printOutStatus("ERR");
+  }
+
+  printOutMessage("WLAN INIT..", "mux?");
+  wifi.enableMUX();
+  if (wifi.disableMUX()) {
+    printOutStatus("OK");
+  } else {
+    printOutStatus("ERR");
+  }
+  
+  printOutMessage("WLAN INIT..", "Join WLAN");
+  if (wifi.joinAP(SSIDA, PASSWORD)) {
+    printOutStatus("OK");
+  } else {
+    printOutStatus("ERR");
+  }
+
+  printOutMessage("WLAN INIT..", "FINISHED INIT");
+
+  delay(5000);
+
   currentIteration = 0;
 
   /* set PIN allocation */
   pinMode(pinHeatLED, OUTPUT);
   pinMode(pinNightLED, OUTPUT);
-
-  /* setup LCD display */
-  lcd.begin(16, 2);
-  lcd.clear();
-  lcd.print("Starte..bitte warten");
-  delay(1000);
-  lcd.clear();
-
-  /* setup serial monitor */
-  Serial.begin(9600);
-  Serial.println(wifi.getVersion().c_str());
 
   /* setup light sensor */
   LightSensor.begin();
@@ -102,27 +135,27 @@ void setup() {
 
   /* setup temp+hum sensor */
   dht.begin();
-  
+
 }
 
 void loop() {
-  
+
   /* collect sensor data phasis */
-   
+
   // Reading temperature or humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
   float h = dht.readHumidity();
   // Read temperature as Celsius (the default)
   float t = dht.readTemperature();
-  
+
   Light_Intensity = LightSensor.GetLightIntensity();
 
   // calculate which phase to show on the LCD display (Temp/Hum or Lux)
-  if(currentIteration == loopCount) {
+  if (currentIteration == loopCount) {
     currentIteration = 0;
 
     // switch phasis between "show temperature on LCD" and "show lux on LCD"
-    if(mode == 0) {
+    if (mode == 0) {
       mode = 1;
     } else {
       mode = 0;
@@ -137,24 +170,24 @@ void loop() {
 
 
   // ******************************************************** PHASE 1 : LUX-Messung
-  if(mode == 0) {
-   
+  if (mode == 0) {
+
     lcd.print(Light_Intensity);
-    lcd.print(" Lux"); 
+    lcd.print(" Lux");
   }
 
   //  ******************************************************** PHASE 2 : Temperatur/Feuchtigkeits-Messung
-  if(mode == 1) {
+  if (mode == 1) {
 
     // Check if any reads failed and exit early (to try again).
     if (isnan(h) || isnan(t)) {
       lcd.print("SENSOR ERROR");
     } else {
-      
+
       lcd.print("Temp:   ");
       lcd.print(t);
       lcd.print(" C");
-      lcd.setCursor(0,2);
+      lcd.setCursor(0, 2);
       lcd.print("Feucht: ");
       lcd.print(h);
       lcd.print(" %");
@@ -165,9 +198,13 @@ void loop() {
   //  ******************************************************** IN ALL PHASES, ADJUST HEAT LED
   int heatLEDStrength = map(t, heatLEDmin, heatLEDmax, 0, 255);
 
-  if(heatLEDStrength < 0) { heatLEDStrength = 0; }
-  if(heatLEDStrength > 254) { heatLEDStrength = 254; }
-  
+  if (heatLEDStrength < 0) {
+    heatLEDStrength = 0;
+  }
+  if (heatLEDStrength > 254) {
+    heatLEDStrength = 254;
+  }
+
   analogWrite(pinHeatLED, heatLEDStrength );
 
 
@@ -175,23 +212,27 @@ void loop() {
   int ledNightStrength = map(Light_Intensity, nightLEDmin, nightLEDmax, 255, 0);
 
   // add bounds for extreme values
-  if(ledNightStrength < 0) { ledNightStrength = 0; }
-  if(ledNightStrength > 254) { ledNightStrength = 254; }
+  if (ledNightStrength < 0) {
+    ledNightStrength = 0;
+  }
+  if (ledNightStrength > 254) {
+    ledNightStrength = 254;
+  }
 
   analogWrite(pinNightLED, ledNightStrength);
 
-//  Serial.print("NIGHT LED: ");
-//  Serial.print(Light_Intensity);
-//  Serial.print(" -> ");
-//  Serial.print(ledNightStrength);
-//  Serial.print(" \n");
+  //  Serial.print("NIGHT LED: ");
+  //  Serial.print(Light_Intensity);
+  //  Serial.print(" -> ");
+  //  Serial.print(ledNightStrength);
+  //  Serial.print(" \n");
 
- // Serial.print("HEAT LED: ");
- // Serial.print(heatLEDStrength);
- // Serial.print(" \n");
-  
+  // Serial.print("HEAT LED: ");
+  // Serial.print(heatLEDStrength);
+  // Serial.print(" \n");
 
-  
+
+
 
   // debug some infos to the serial monitor
   //Serial.print("Humidity: ");
@@ -200,6 +241,34 @@ void loop() {
   //Serial.print("Temperature: ");
   //Serial.print(t);
   //Serial.print(" *C ");
-  
-  
 }
+
+
+void printOutMessage(String headline, String currentDoing) {
+
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+
+  lcd.print(headline);
+
+  lcd.setCursor(0, 1);
+  lcd.print(currentDoing);
+
+  Serial.println(headline);
+  Serial.println(currentDoing);
+  Serial.println("------------------------------------");
+
+
+  delay(lcdWaitingTime);
+
+}
+
+
+void printOutStatus(String status) {
+  lcd.print("..");
+  lcd.print(status);
+  delay(lcdWaitingTime);
+
+}
+
