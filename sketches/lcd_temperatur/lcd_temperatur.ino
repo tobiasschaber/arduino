@@ -75,16 +75,12 @@ DHT dht(DHTPIN, DHTTYPE);
 
 
 // create some WLAN artifacts
-#define SSIDA       "codecentric"
-#define PASSWORD    "MajorTom"
+#define SSID        "Kfb_Outpost"
+#define PASSWORD    "tobiasSCHABERundNADINEseeger"
 #define HOST_NAME   "www.baidu.com"
 #define HOST_PORT   (80)
 ESP8266 wifi(Serial);
 
-
-
-#define SSID     "codecentric"
-#define PASSWORD "MajorTom"
 
 void setup() {
 
@@ -110,15 +106,22 @@ void setup() {
   } else {
     printOutStatus("ERR");
   }
-  
-  printOutMessage("WLAN INIT..", "Join WLAN");
-  if (wifi.joinAP(SSIDA, PASSWORD)) {
+
+  printOutMessage("WLAN INIT..", "DHCP?");
+  if (wifi.enableClientDHCP(1, true)) {
     printOutStatus("OK");
   } else {
     printOutStatus("ERR");
   }
 
-  printOutMessage("WLAN INIT..", "FINISHED INIT");
+  printOutMessage("WLAN INIT..", "Join WLAN");
+  if (wifi.joinAP(SSID, PASSWORD)) {
+    printOutStatus("OK");
+  } else {
+    printOutStatus("ERR");
+  }
+
+  printOutMessage("WLAN INIT..", "FINISHED INIT!");
 
   delay(5000);
 
@@ -268,7 +271,40 @@ void printOutMessage(String headline, String currentDoing) {
 void printOutStatus(String status) {
   lcd.print("..");
   lcd.print(status);
-  delay(lcdWaitingTime);
+  delay(lcdWaitingTime-200);
 
+}
+
+
+
+void pushValuesToBackend() {
+
+    uint8_t buffer[1024] = {0};
+
+    if (wifi.createTCP(HOST_NAME, HOST_PORT)) {
+        Serial.print("create tcp ok\r\n");
+    } else {
+        Serial.print("create tcp err\r\n");
+    }
+
+    char *hello = "GET / HTTP/1.1\r\nHost: www.baidu.com\r\nConnection: close\r\n\r\n";
+    wifi.send((const uint8_t*)hello, strlen(hello));
+
+    uint32_t len = wifi.recv(buffer, sizeof(buffer), 10000);
+    if (len > 0) {
+        Serial.print("Received:[");
+        for(uint32_t i = 0; i < len; i++) {
+            Serial.print((char)buffer[i]);
+        }
+        Serial.print("]\r\n");
+    }
+
+    if (wifi.releaseTCP()) {
+        Serial.print("release tcp ok\r\n");
+    } else {
+        Serial.print("release tcp err\r\n");
+    }
+
+  
 }
 

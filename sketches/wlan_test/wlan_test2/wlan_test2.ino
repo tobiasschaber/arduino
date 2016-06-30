@@ -1,16 +1,18 @@
-#include "ESP8266.h"
-//#include <SoftwareSerial.h>
-
-
+#include <ESP8266.h>
 #include <doxygen.h>
+
+//#include <SoftwareSerial.h>
 
 
 // DOKU ESP8266 LIBRARY: https://github.com/itead/ITEADLIB_Arduino_WeeESP8266
 
 
+// ####################################
+// DAS GEHT AT+CWDHCP=1,1
+// ####################################
 
-#define SSIDA       "codecentric"
-#define PASSWORD    "MajorTom"
+#define SSIDA       "Kfb_Outpost"
+#define PASSWORD    "tobiasSCHABERundNADINEseeger"
 #define HOST_NAME   "www.baidu.com"
 #define HOST_PORT   (80)
 
@@ -27,7 +29,14 @@ void setup() {
   Serial.print("FW Version: ");
   Serial.println(wifi.getVersion().c_str());
   Serial.println("xx");
-    
+
+    Serial.println("ENABLE DHCP");
+    if (wifi.enableClientDHCP(1, true)) {
+      Serial.println("OKOKOKOK");
+    } else {
+      Serial.println("ERRRRRRRRRRRR");
+    }
+
     
     if (wifi.setOprToStation()) {
         Serial.print("to station ok\r\n");
@@ -69,9 +78,4 @@ void loop() {
 
 }
 
-
-
-void printOutMessage(String message) {
-  
-}
 
