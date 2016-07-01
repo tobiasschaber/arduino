@@ -1,16 +1,8 @@
-/*
-   SKETCH FOR MY SELFMADE LCD-SHIELD AND MY SELFMADE SENSOR-SHIELD!
-
-   full sketch for measuring temperature, humidity and brightness
-   and displaying it on 2 LEDs and one LCD display.
-   you can just leave out the two LEDs and only use the LCD display.
-
-*/
+#include <stdio.h>
 
 // library for light sensor
 #include <BH1750FVI.h>
 #include <Wire.h> // I2C Library
-#include <stdio.h>
 
 // library for wlan module
 #include "ESP8266.h"
@@ -22,13 +14,28 @@
 // library for LCD display
 #include <LiquidCrystal.h>
 
-// digital pin for temperature/humidity sensor
-#define DHTPIN 2
+/* ************************************************************************* *
+   SKETCH FOR MY SELFMADE LCD-SHIELD AND MY SELFMADE SENSOR-SHIELD!
+
+   full sketch for measuring temperature, humidity and brightness
+   and displaying it on 2 LEDs and one LCD display.
+   you can just leave out the two LEDs and only use the LCD display.
+
+ * ************************************************************************* */
+
+// create some WLAN artifacts
+#define wlanSSID      "codecentric"
+#define wlanPass      "MajorTom"
+
+// digital pin assignment
+#define pinDHTsensor  2
+#define pinHeatLED    9
+#define pinNightLED   5
+
+
 // type of temperature/humidity sensor
 #define DHTTYPE DHT22
 
-int pinHeatLED = 9;
-int pinNightLED = 5;
 
 // initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(4, 6, 10, 11, 12, 13);
@@ -62,26 +69,20 @@ int currentIteration = 0;
 // modus. 0 = Temperaturanzeige, 1 = LUX-Anzeige
 int mode = 0;
 
-// Connect pin 1 (on the left) of the sensor to +5V
-// NOTE: If using a board with 3.3V logic like an Arduino Due connect pin 1
-// to 3.3V instead of 5V!
-// Connect pin 2 of the sensor to whatever your DHTPIN is
-// Connect pin 4 (on the right) of the sensor to GROUND
-// Connect a 10K resistor from pin 2 (data) to pin 1 (power) of the sensor
 
-// Initialize DHT sensor.
-// Note that older versions of this library took an optional third parameter to
-// tweak the timings for faster processors.  This parameter is no longer needed
-// as the current DHT reading algorithm adjusts itself to work on faster procs.
-DHT dht(DHTPIN, DHTTYPE);
 
 
 // create some WLAN artifacts
-#define SSID        "Kfb_Outpost"
-#define PASSWORD    "tobiasSCHABERundNADINEseeger"
 #define HOST_NAME   "www.baidu.com"
 #define HOST_PORT   (80)
+
+// Initialize DHT sensor
+DHT dht(pinDHTsensor, DHTTYPE);
+
+// Initialize WIFI module
 ESP8266 wifi(Serial);
+
+
 
 
 void setup() {
@@ -117,7 +118,7 @@ void setup() {
   }
 
   printOutMessage("WLAN INIT..", "Join WLAN");
-  if (wifi.joinAP(SSID, PASSWORD)) {
+  if (wifi.joinAP(wlanSSID, wlanPass)) {
     printOutStatus("OK");
   } else {
     printOutStatus("ERR");
