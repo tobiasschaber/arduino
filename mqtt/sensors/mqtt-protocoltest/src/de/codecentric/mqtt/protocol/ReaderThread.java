@@ -30,14 +30,20 @@ public class ReaderThread implements Runnable {
                 //System.out.println("reading:" + read);
             }
             System.out.println("FINISHED READING " + ct + " bytes");
-            System.out.println("========================================= PAYLOAD:");
+            System.out.println("=========================================== PAYLOAD:");
             System.out.println(new String(buffer, StandardCharsets.UTF_8));
-            System.out.println("========================================= PAYLOAD BYTES:");
+            System.out.print("=========================================== PAYLOAD BYTES:");
 
             for(int i=0;i<buffer.length;i++) {
-                if(buffer[i] != 0)
-                System.out.println(Integer.toBinaryString(buffer[i]));
+                if(buffer[i] != 0) {
+                    if (i % 4 == 0) {
+                        System.out.println("");
+                    }
 
+                    System.out.print(String.format("%8s", Integer.toBinaryString(buffer[i])).replace(' ', '0')+ " | ");
+
+
+                }
             }
 
 
