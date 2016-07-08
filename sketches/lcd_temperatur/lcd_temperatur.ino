@@ -23,7 +23,7 @@
 
  * ************************************************************************* */
 
-// create some WLAN artifacts
+// WLAN credentials
 #define wlanSSID      "codecentric"
 #define wlanPass      "MajorTom"
 
@@ -303,7 +303,7 @@ void printOutStatus(String status) {
 
 
 void pushValuesToBackend() {
-/*
+
     uint8_t buffer[1024] = {0};
 
     if (wifi.createTCP(HOST_NAME, HOST_PORT)) {
@@ -311,6 +311,8 @@ void pushValuesToBackend() {
     } else {
         Serial.print("create tcp err\r\n");
     }
+
+    
 
     char *hello = "GET / HTTP/1.1\r\nHost: www.baidu.com\r\nConnection: close\r\n\r\n";
     wifi.send((const uint8_t*)hello, strlen(hello));
