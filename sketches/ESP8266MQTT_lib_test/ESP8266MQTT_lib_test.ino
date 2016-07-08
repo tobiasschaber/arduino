@@ -86,14 +86,27 @@ void loop() {
  Serial.println("========================================== STARTE SENDEVORGANG");
 
 
- wifi.createTCP(mqttServerName, mqttServerPort);
+ bool exas = wifi.createTCP(mqttServerName, mqttServerPort);
+
+ 
+ 
+ delay(3000);
+ 
+ 
+ 
+ 
+ 
  char *hello = "GET / HTTP/1.1\r\nHost: www.baidu.com\r\nConnection: close\r\n\r\n";
  wifi.send((const uint8_t*)hello, strlen(hello));
  wifi.releaseTCP();
 
 Serial.println("ENDE");
 
-  
+ if(exas) {
+  Serial.println("create tcp ok");
+ } else {
+  Serial.println("create tcp failed");
+ }
 
 
  

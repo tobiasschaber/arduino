@@ -23,15 +23,22 @@ public class ProtocolTest {
             sock = ssock.accept();
             System.out.println("nehme an");
 
-            Thread reader = new Thread(new ReaderThread(sock.getInputStream()));
-
-            reader.start();
+            Thread.sleep(1500);
 
             OutputStream os = sock.getOutputStream();
 
             System.out.println("writing response");
-            byte[] response = "OK".getBytes(Charset.forName("UTF-8"));
+            byte[] response = "OK OK OK ".getBytes(Charset.forName("UTF-8"));
             os.write(response);
+            os.flush();
+
+
+
+            Thread reader = new Thread(new ReaderThread(sock.getInputStream()));
+
+            reader.start();
+
+
 
 
             Thread.sleep(12000);
