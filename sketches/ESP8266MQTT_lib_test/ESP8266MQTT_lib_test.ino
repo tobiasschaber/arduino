@@ -94,10 +94,15 @@ void loop() {
  
  
  
+ char* conMsg = reinterpret_cast<char*>(
+      mqtt.getConnectMessage("testid")
+ s   );
  
+ //char *hello = "GET / HTTP/1.1\r\nHost: www.baidu.com\r\nConnection: close\r\n\r\n";
+ //wifi.send((const uint8_t*)hello, strlen(hello));
+
+ wifi.send( mqtt.getConnectMessage("testid"), strlen(conMsg));
  
- char *hello = "GET / HTTP/1.1\r\nHost: www.baidu.com\r\nConnection: close\r\n\r\n";
- wifi.send((const uint8_t*)hello, strlen(hello));
  wifi.releaseTCP();
 
 Serial.println("ENDE");
