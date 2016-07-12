@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#include <TaskScheduler.h>
+
 /* sensor and component libraries */
 //#include <BH1750FVI.h>      // light sensor
 #include <DHT.h>            // temperature sensor
@@ -80,7 +82,7 @@ void setup() {
   //LightSensor.SetAddress(Device_Address_L);
   //LightSensor.SetMode(Continuous_H_resolution_Mode);
 
-  mqttClient.setServer(mqttServer, mqttPort);
+  mqttClient.setServer(mqttHost, mqttPort);
 
   /* initial wlan connection */
   switchWLAN(true);
@@ -235,7 +237,6 @@ bool connectMQTT() {
   }
 
   logMessage("mqtt connection failed after 10 tries. error:", false);
-  logMessage(mqttClient.state());
   
   hasMQTTError = true;
   return false;
@@ -248,7 +249,7 @@ bool connectMQTT() {
    ============================================================================================================================ */
 void sendMQTTMessage(String topic, String message) {
   logMessage("sending message...");
-  client.publish("outTopic", "hello world");
+  mqttClient.publish("outTopic", "hello world");
 }
 
 
