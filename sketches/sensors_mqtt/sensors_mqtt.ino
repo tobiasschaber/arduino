@@ -16,7 +16,7 @@
 #define globalDelayMs 5000
 
 /* mqtt server information */
-#define mqttHost      "172.17.21.149"
+#define mqttHost      "192.168.43.59"
 #define mqttPort      (1883)
 
 /* mqtt client id of this device */
@@ -33,34 +33,47 @@ char* wlanPass1 = "MajorTom";
 char* wlanPass2 = "jmca2165";
 
 /* pin definitions */
-#define pinDHTsensor  2
-#define pinWLANbutton 3
+#define pinDHTsensor  D2
+#define pinWLANbutton D3
 
-#define pinHasError   5
+#define pinHasError   D5
 #define pinStatusLED  BUILTIN_LED
 
-#define pinLCD1       4
-#define pinLCD2       6
-#define pinLCD3       10
-#define pinLCD4       11
-#define pinLCD5       12
-#define pinLCD6       13
+#define pinLCD1       D4
+#define pinLCD2       D6
+#define pinLCD3       D10
+#define pinLCD4       D11
+#define pinLCD5       D12
+#define pinLCD6       D13
 
 /* sensor components */
 //BH1750FVI     lightSensor;
-LiquidCrystal lcd(pinLCD1, pinLCD2, pinLCD3, pinLCD4, pinLCD5, pinLCD6);
-DHT           dht(pinDHTsensor, DHT22);
+//LiquidCrystal lcd(pinLCD1, pinLCD2, pinLCD3, pinLCD4, pinLCD5, pinLCD6);
+//DHT           dht(pinDHTsensor, DHT22);
 
 WiFiClient    espClient;
 PubSubClient  mqttClient(espClient);
 
 /* value-holding variables */
 uint16_t      lightIntensity = 0;
-uint8_t       currentWlanId  = 0;
+uint8_t       currentWlanId  = -1;
 
 /* error indicators */
 bool          hasWLANError   = false;
 bool          hasMQTTError   = false;
+
+Scheduler runner;
+
+void connectWLANThread();
+void connectMQTTThread();
+void sendMQTTThread();
+void flashErrorLEDOnErrorsThread();
+
+Task connectWLANTask(200, TASK_FOREVER, &connectWLANThread);
+Task connectMQTTTask(1000, TASK_FOREVER, &connectMQTTThread);
+Task sendMQTTTask(5000, TASK_FOREVER, &sendMQTTThread);
+Task flashErrorLEDOnErrorsTask(200, TASK_FOREVER, &flashErrorLEDOnErrorsThread);
+
 
 
 /* ============================================================================================================================
@@ -70,23 +83,33 @@ void setup() {
 
   Serial.begin(115200);
 
+  Serial.println("BOOTING NOW...");
+
   pinMode(pinWLANbutton, INPUT);
   pinMode(pinHasError, OUTPUT);
   pinMode(pinStatusLED, OUTPUT);
 
-  lcd.begin(16, 2);
-  dht.begin();
+  digitalWrite(pinStatusLED, HIGH);
+
+//  lcd.begin(16, 2);
+//  dht.begin();
   //lightSensor.begin();
 
-  lcd.clear();
+//  lcd.clear();
   //LightSensor.SetAddress(Device_Address_L);
   //LightSensor.SetMode(Continuous_H_resolution_Mode);
 
   mqttClient.setServer(mqttHost, mqttPort);
+  
+  runner.init();
 
-  /* initial wlan connection */
-  switchWLAN(true);
+  runner.addTask(connectWLANTask);
+  runner.addTask(connectMQTTTask);
+  runner.addTask(sendMQTTTask);
+  runner.addTask(flashErrorLEDOnErrorsTask);
 
+  flashErrorLEDOnErrorsTask.enable();
+  connectWLANTask.enable();
 
 }
 
@@ -96,27 +119,7 @@ void setup() {
    ============================================================================================================================ */
 void loop() {
 
-  /* flash the error LED if there are any errors */
-  flashErrorLEDOnErrors();
-
-  /* if "switch wlan button" is pressed */
-  if (digitalRead(pinWLANbutton) == HIGH) {
-
-    /* give user feedback to button pushed */
-    flashStatusLED();
-
-    switchWLAN(false);
-    /* wait until button no longer pushed */
-    delay(200);
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    connectMQTT();
-  } else {
-    logMessage("WLAN not connected, thus not trying to connect mqtt!");
-  }
-
-  delay(globalDelayMs);
+  runner.execute();
 
 }
 
@@ -124,33 +127,67 @@ void loop() {
 /* ============================================================================================================================
    disconnect WLAN and switch to a new WLAN round robin. if initial==true, don't disconnect and connect to default wlan (id 0)
    ============================================================================================================================ */
-void switchWLAN(bool initial) {
-  logMessage("switching WLAN...");
+void connectWLANThread() {
+  
+  /* set default WLAN credentials */
+  char* useSSID = wlanSSID0;
+  char* usePass = wlanPass0;
+  
+  /* if "switch wlan button" is pressed or intial mode */
+  if (digitalRead(pinWLANbutton) == HIGH || currentWlanId == -1) {
+   
+    /* give user feedback to button pushed */
+    flashStatusLED();
 
-  hasWLANError = false;
+    logMessage("setting up new wlan connection", true);
 
-  /* wlanId -1? -> set default wlan (= id 0) */
-  if (initial) {
-    currentWlanId = 0;
-    connectWLAN(wlanSSID0, wlanPass0);
-  } else {
+    if (WiFi.status() == WL_CONNECTED) {
+      disconnectWLAN();
+    }
 
-    disconnectWLAN();
-
-    /* switch wlan between different modes (currently only 3 modes available!) */
+    /* rotate through all available wlan settings */
     if (currentWlanId == 0) {
       currentWlanId = 1;
-      connectWLAN(wlanSSID1, wlanPass1);
     } else {
       if (currentWlanId == 1) {
         currentWlanId = 2;
-        connectWLAN(wlanSSID2, wlanPass2);
       } else {
         currentWlanId = 0;
-        connectWLAN(wlanSSID0, wlanPass0);
       }
     }
   }
+
+  /* select the wlan setting to use */
+  if (currentWlanId == 0) {
+    useSSID = wlanSSID0;
+    usePass = wlanPass0;
+  } else {
+    if (currentWlanId == 1) {
+      useSSID = wlanSSID1;
+      usePass = wlanPass1;
+    } else {
+      useSSID = wlanSSID2;
+      usePass = wlanPass2;
+    }
+  }
+
+  if(WiFi.status() == WL_IDLE_STATUS || WiFi.status() == WL_DISCONNECTED) {
+    logMessage("connecting to wlan: ", false);
+    logMessage(useSSID);
+
+    WiFi.begin(useSSID, usePass);
+  }
+  
+
+  if(WiFi.status() != WL_CONNECTED) {
+      hasWLANError = true;      
+  } else {
+    //logMessage("SUCCESS: connected to WLAN. IP: ", false);
+    //logMessage(WiFi.localIP().toString());
+    hasWLANError = false;
+    connectMQTTTask.enable();
+  }
+  
 }
 
 
@@ -161,6 +198,8 @@ void disconnectWLAN() {
 
   /* try to disconnect if already connected */
   if (WiFi.status() == WL_CONNECTED) {
+    disconnectMQTT();
+    
     logMessage("disconnecting from wlan");
     WiFi.disconnect();
 
@@ -175,71 +214,34 @@ void disconnectWLAN() {
   }
 }
 
-/* ============================================================================================================================
-   if status DISCONNECTED, try to connect to the given wlan credentials
-   ============================================================================================================================ */
-bool connectWLAN(char* ssid, char* pass) {
-
-  logMessage("connecting to wlan: ", false);
-  logMessage(ssid);
-
-  if (WiFi.status() != WL_DISCONNECTED) {
-    logMessage("ERROR: wlan not in disconnected state!");
-    hasWLANError = true;
-    return false;
-  } else {
-
-    WiFi.begin(ssid, pass);
-
-    int ct = 0;
-
-    while (ct < 10 && WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      logMessage(".", false);
-    }
-
-    if (WiFi.status() != WL_CONNECTED) {
-      logMessage("ERROR: could not connect to WLAN");
-      hasWLANError = true;
-      return false;
-    } else {
-      logMessage("SUCCESS: connected to WLAN. IP: ", false);
-      logMessage(WiFi.localIP().toString());
-      return true;
-    }
-
-  }
-}
 
 
 /* ============================================================================================================================
    try to connect to the MQTT broker
    ============================================================================================================================ */
-bool connectMQTT() {
-  logMessage("connecting to MQTT server.");
-
-  int ct = 0;
-
+void connectMQTTThread() {
+ 
   /* skip if already connected or too many tries */
-  while(ct < 10 && !mqttClient.connected()) {
+  if(!mqttClient.connected()) {
+     
+    logMessage("connecting to MQTT server...");
+      
     mqttClient.connect(clientId);
-    
-    logMessage(".", false);
 
     if(mqttClient.connected()) {
 
-      ct=10;
+      logMessage("successfully connected to mqtt", true);
+      sendMQTTTask.enable();
       hasMQTTError = false;
-      return true;
+      return;
+    }   else {
+      logMessage("could not connect to mqtt...", true);
+      hasMQTTError = true;
     }
-
-    delay(500);    
+  } else {
+    
+    hasMQTTError = false;
   }
-
-  logMessage("mqtt connection failed after 10 tries. error:", false);
-  
-  hasMQTTError = true;
-  return false;
 }
 
 
@@ -247,9 +249,13 @@ bool connectMQTT() {
 /* ============================================================================================================================
    ============================================================================================================================
    ============================================================================================================================ */
-void sendMQTTMessage(String topic, String message) {
-  logMessage("sending message...");
-  mqttClient.publish("outTopic", "hello world");
+void sendMQTTMessage(char* topic, char* message) {
+  if(mqttClient.connected()) {
+    logMessage("sending message...");
+    mqttClient.publish(topic, message);
+  } else {
+    logMessage("not connected, can not send message via mqtt", true);
+  }
 }
 
 
@@ -275,36 +281,54 @@ void logMessage(String msg) {
 /* ============================================================================================================================
    ============================================================================================================================
    ============================================================================================================================ */
-void flashErrorLEDOnErrors() {
+void flashStatusLED() {
 
-
-  /* if there currently are any known errors, flash LED */
-  if (hasWLANError || hasMQTTError) {
-    for (int i = 0; i < 4; i++) {
-      digitalWrite(pinHasError, LOW);
-      delay(100);
-      digitalWrite(pinHasError, HIGH);
-      delay(100);
-    }
-  } else {
-    digitalWrite(pinHasError, LOW);
-  }
+  digitalWrite(pinStatusLED, LOW);
+  delay(50);
+  digitalWrite(pinStatusLED, HIGH);
+  delay(50);
+  digitalWrite(pinStatusLED, LOW);
+  delay(50);
+  digitalWrite(pinStatusLED, HIGH);
+  delay(50);
 }
 
 
 /* ============================================================================================================================
    ============================================================================================================================
    ============================================================================================================================ */
-void flashStatusLED() {
+void sendMQTTThread() {
 
-  digitalWrite(pinStatusLED, HIGH);
-  delay(50);
-  digitalWrite(pinStatusLED, LOW);
-  delay(50);
-  digitalWrite(pinStatusLED, HIGH);
-  delay(50);
-  digitalWrite(pinStatusLED, LOW);
-  delay(50);
+  sendMQTTMessage("bla", "blubb");
+  
 }
 
+void flashErrorLEDOnErrorsThread() {  
+
+  
+
+  /* if there currently are any known errors, flash LED */
+  if (hasWLANError || hasMQTTError) {
+
+      digitalWrite(pinHasError, LOW);
+      delay(100);
+      digitalWrite(pinHasError, HIGH);
+      delay(100);
+
+  } else {
+    digitalWrite(pinHasError, LOW);
+  }
+  
+}
+
+
+
+void disconnectMQTT() {
+  
+  logMessage("disconnecting and disabling mqtt");
+  sendMQTTTask.disable();
+  connectMQTTTask.disable();
+  mqttClient.disconnect();
+  
+}
 
