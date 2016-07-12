@@ -33,31 +33,45 @@ arduino wlan:
 
 
 SENSOREN
+
 ------------------------------
+Bereits vorhanden:
+
+- Temperatur
+- Luftfeuchtigkeit
+- Gyroskop
+- Helligkeit
+
+- Display
+- 7-Segment-Anzeige
+- Drehpoti
+- Motoren
+
+
+Sonstige:
+------------------------------
+
 - Distanz
         https://www.youtube.com/watch?v=iNXfADw0M9Y
         https://www.amazon.de/Aukru-Ultraschall-HC-SR04-Distance-Raspberry/dp/B00R2U8HK6/ref=sr_1_1?ie=UTF8&qid=1466432479&sr=8-1&keywords=distance+sensor
 
-- Temperatur
+
+
 - Luftdruck
-- Luftfeuchtigkeit
 - Gas
 
 - Bewegungssensor
 - GPS
-- Gyroskop
 - Infrarot
 - Radio
 - Laser
 - Durchflussmesser
 - Wiegedruck
 - Fotowiderstand
-- Motoren
 
-- Drehpoti
+
+
 - Joystick
 
-- Display
-- 7-Segment-Anzeige
 
 
