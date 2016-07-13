@@ -1,4 +1,4 @@
-//#include <Ultrasonic.h>
+#include <Ultrasonic.h>
 
 #include <stdio.h>
 
@@ -17,7 +17,7 @@
 #define globalDelayMs 5000
 
 /* mqtt server information */
-#define mqttHost      "192.168.43.59"
+#define mqttHost      "192.168.0.13"
 #define mqttPort      (1883)
 
 /* mqtt client id of this device */
@@ -29,7 +29,7 @@ char* wlanSSID1 = "codecentric";
 char* wlanSSID2 = "AndroidAP";
 
 
-char* wlanPass0 = "tobiaSCHABERundNADINEseeger";
+char* wlanPass0 = "tobiasSCHABERundNADINEseeger";
 char* wlanPass1 = "MajorTom";
 char* wlanPass2 = "jmca2165";
 
@@ -40,13 +40,14 @@ char* wlanPass2 = "jmca2165";
 #define pinHasError   D5
 #define pinStatusLED  BUILTIN_LED
 
-#define pinDist1      D3
-#define pinDist2      D4
+#define pinDistEcho   D4
+#define pinDistTrig   D3
 
 /* sensor components */
 //BH1750FVI     lightSensor;
 DHT           dht(pinDHTsensor, DHT22);  WiFiClient    espClient;
 PubSubClient  mqttClient(espClient);
+Ultrasonic ultrasonic(pinDistTrig, pinDistEcho); // (Trig PIN,Echo PIN)
 
 /* value-holding variables */
 uint16_t      lightIntensity = 0;
@@ -75,7 +76,7 @@ Task flashErrorLEDOnErrorsTask(200, TASK_FOREVER, &flashErrorLEDOnErrorsThread);
    ============================================================================================================================ */
 void setup() {
 
-  
+
 
   Serial.begin(115200);
 
@@ -84,19 +85,19 @@ void setup() {
   pinMode(pinWLANbutton, INPUT);
   pinMode(pinHasError, OUTPUT);
   pinMode(pinStatusLED, OUTPUT);
-  pinMode(pinDist1, INPUT); //TODO NÖTIG?
-  pinMode(pinDist2, INPUT); //TODO NÖTIG?
-
+  pinMode(pinDistEcho, INPUT);
+  pinMode(pinDistTrig, OUTPUT);
+  
   digitalWrite(pinStatusLED, HIGH);
 
   dht.begin();
-  //lightSensor.begin(); 
+  //lightSensor.begin();
 
   //LightSensor.SetAddress(Device_Address_L);
   //LightSensor.SetMode(Continuous_H_resolution_Mode);
 
   mqttClient.setServer(mqttHost, mqttPort);
-  
+
   runner.init();
 
   runner.addTask(connectWLANTask);
@@ -115,27 +116,9 @@ void setup() {
    ============================================================================================================================ */
 void loop() {
 
+   
 
-  float h = dht.readHumidity();
-  // Read temperature as Celsius (the default)
-  float t = dht.readTemperature();
-
-
-  if (isnan(h) || isnan(t)) {
-      Serial.println("SENSOR ERROR");
-    } else {
-
-      Serial.print("Temp:   ");
-      Serial.print(t);
-      Serial.println(" C");
-      Serial.print("Feucht: ");
-      Serial.print(h);
-      Serial.println(" %");
-
-    }
-
-
-  runner.execute();
+ runner.execute();
 
 }
 
@@ -144,19 +127,19 @@ void loop() {
    disconnect WLAN and switch to a new WLAN round robin. if initial==true, don't disconnect and connect to default wlan (id 0)
    ============================================================================================================================ */
 void connectWLANThread() {
-  
+
   /* set default WLAN credentials */
   char* useSSID = wlanSSID0;
   char* usePass = wlanPass0;
-  
+
   /* if "switch wlan button" is pressed or intial mode */
   if (digitalRead(pinWLANbutton) == HIGH || currentWlanId == -1) {
-   
+
     /* give user feedback to button pushed */
     flashStatusLED();
 
     logMessage("setting up new wlan connection", true);
-
+    
     if (WiFi.status() == WL_CONNECTED) {
       disconnectWLAN();
     }
@@ -187,23 +170,23 @@ void connectWLANThread() {
     }
   }
 
-  if(WiFi.status() == WL_IDLE_STATUS || WiFi.status() == WL_DISCONNECTED) {
+  if (WiFi.status() == WL_IDLE_STATUS || WiFi.status() == WL_DISCONNECTED || WiFi.status() == WL_NO_SSID_AVAIL) {
     logMessage("connecting to wlan: ", false);
     logMessage(useSSID);
 
     WiFi.begin(useSSID, usePass);
   }
-  
 
-  if(WiFi.status() != WL_CONNECTED) {
-      hasWLANError = true;      
+
+  if (WiFi.status() != WL_CONNECTED) {
+    hasWLANError = true;
   } else {
     //logMessage("SUCCESS: connected to WLAN. IP: ", false);
     //logMessage(WiFi.localIP().toString());
     hasWLANError = false;
     connectMQTTTask.enable();
   }
-  
+
 }
 
 
@@ -215,7 +198,7 @@ void disconnectWLAN() {
   /* try to disconnect if already connected */
   if (WiFi.status() == WL_CONNECTED) {
     disconnectMQTT();
-    
+
     logMessage("disconnecting from wlan");
     WiFi.disconnect();
 
@@ -236,15 +219,15 @@ void disconnectWLAN() {
    try to connect to the MQTT broker
    ============================================================================================================================ */
 void connectMQTTThread() {
- 
+
   /* skip if already connected or too many tries */
-  if(!mqttClient.connected()) {
-     
+  if (!mqttClient.connected()) {
+
     logMessage("connecting to MQTT server...");
-      
+
     mqttClient.connect(clientId);
 
-    if(mqttClient.connected()) {
+    if (mqttClient.connected()) {
 
       logMessage("successfully connected to mqtt", true);
       sendMQTTTask.enable();
@@ -255,7 +238,7 @@ void connectMQTTThread() {
       hasMQTTError = true;
     }
   } else {
-    
+
     hasMQTTError = false;
   }
 }
@@ -265,9 +248,12 @@ void connectMQTTThread() {
 /* ============================================================================================================================
    ============================================================================================================================
    ============================================================================================================================ */
-void sendMQTTMessage(char* topic, char* message) {
-  if(mqttClient.connected()) {
+void sendMQTTMessage(char* topic, const char* message) {
+  if (mqttClient.connected()) {
+    
     logMessage("sending message...");
+    flashStatusLED();
+    
     mqttClient.publish(topic, message);
   } else {
     logMessage("not connected, can not send message via mqtt", true);
@@ -315,36 +301,79 @@ void flashStatusLED() {
    ============================================================================================================================ */
 void sendMQTTThread() {
 
-  sendMQTTMessage("bla", "blubb");
-  
+  long range = -1;
+
+  /* give 10 tries to get a valid distance value */
+  for(int i=0; i<10; i++) {
+    long range = ultrasonic.Ranging(CM);
+
+      if(range != 0) {
+        i = 10;
+      }
+  }
+   
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+
+
+  if (isnan(h) || isnan(t)) {
+    Serial.println("SENSOR ERROR");
+  } else {
+
+    Serial.print("Temp:   ");
+    Serial.print(t);
+    Serial.println(" C");
+    Serial.print("Feucht: ");
+    Serial.print(h);
+    Serial.println(" %");
+ }
+
+  String s = "";
+  s += "{\n";
+  s += "\"temperatur\" : \"";
+  s += t;
+  s += "\",\n";
+  s += "\"feuchtigkeit\" : \"";
+  s += h;
+  s += "\",\n";
+  s += "\"distance\" : \"";
+  s += range;
+  s += "\"\n}";
+
+  const char* msg = s.c_str();
+ 
+  Serial.println(s);
+  sendMQTTMessage("weather", msg);
+
 }
 
-void flashErrorLEDOnErrorsThread() {  
+void flashErrorLEDOnErrorsThread() {
 
-  
+
 
   /* if there currently are any known errors, flash LED */
   if (hasWLANError || hasMQTTError) {
 
-      digitalWrite(pinHasError, LOW);
-      delay(100);
-      digitalWrite(pinHasError, HIGH);
-      delay(100);
+    digitalWrite(pinHasError, LOW);
+    delay(100);
+    digitalWrite(pinHasError, HIGH);
+    delay(100);
 
   } else {
-    digitalWrite(pinHasError, HIGH);
+    digitalWrite(pinHasError, LOW);
   }
-  
+
 }
 
 
 
 void disconnectMQTT() {
-  
+
   logMessage("disconnecting and disabling mqtt");
   sendMQTTTask.disable();
   connectMQTTTask.disable();
   mqttClient.disconnect();
-  
+
 }
 
