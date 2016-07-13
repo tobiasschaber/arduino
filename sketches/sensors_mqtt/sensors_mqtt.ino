@@ -1,3 +1,5 @@
+//#include <Ultrasonic.h>
+
 #include <stdio.h>
 
 #include <TaskScheduler.h>
@@ -5,7 +7,6 @@
 /* sensor and component libraries */
 //#include <BH1750FVI.h>      // light sensor
 #include <DHT.h>            // temperature sensor
-#include <LiquidCrystal.h>  // lcd display
 #include <ESP8266WiFi.h>    // wlan module
 
 /* other libraries */
@@ -33,25 +34,18 @@ char* wlanPass1 = "MajorTom";
 char* wlanPass2 = "jmca2165";
 
 /* pin definitions */
-#define pinDHTsensor  D2
-#define pinWLANbutton D3
+#define pinDHTsensor  D1
+#define pinWLANbutton D2
 
 #define pinHasError   D5
 #define pinStatusLED  BUILTIN_LED
 
-#define pinLCD1       D4
-#define pinLCD2       D6
-#define pinLCD3       D10
-#define pinLCD4       D11
-#define pinLCD5       D12
-#define pinLCD6       D13
+#define pinDist1      D3
+#define pinDist2      D4
 
 /* sensor components */
 //BH1750FVI     lightSensor;
-//LiquidCrystal lcd(pinLCD1, pinLCD2, pinLCD3, pinLCD4, pinLCD5, pinLCD6);
-//DHT           dht(pinDHTsensor, DHT22);
-
-WiFiClient    espClient;
+DHT           dht(pinDHTsensor, DHT22);  WiFiClient    espClient;
 PubSubClient  mqttClient(espClient);
 
 /* value-holding variables */
@@ -81,6 +75,8 @@ Task flashErrorLEDOnErrorsTask(200, TASK_FOREVER, &flashErrorLEDOnErrorsThread);
    ============================================================================================================================ */
 void setup() {
 
+  
+
   Serial.begin(115200);
 
   Serial.println("BOOTING NOW...");
@@ -88,14 +84,14 @@ void setup() {
   pinMode(pinWLANbutton, INPUT);
   pinMode(pinHasError, OUTPUT);
   pinMode(pinStatusLED, OUTPUT);
+  pinMode(pinDist1, INPUT); //TODO NÖTIG?
+  pinMode(pinDist2, INPUT); //TODO NÖTIG?
 
   digitalWrite(pinStatusLED, HIGH);
 
-//  lcd.begin(16, 2);
-//  dht.begin();
-  //lightSensor.begin();
+  dht.begin();
+  //lightSensor.begin(); 
 
-//  lcd.clear();
   //LightSensor.SetAddress(Device_Address_L);
   //LightSensor.SetMode(Continuous_H_resolution_Mode);
 
@@ -118,6 +114,26 @@ void setup() {
    LOOP method
    ============================================================================================================================ */
 void loop() {
+
+
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+
+
+  if (isnan(h) || isnan(t)) {
+      Serial.println("SENSOR ERROR");
+    } else {
+
+      Serial.print("Temp:   ");
+      Serial.print(t);
+      Serial.println(" C");
+      Serial.print("Feucht: ");
+      Serial.print(h);
+      Serial.println(" %");
+
+    }
+
 
   runner.execute();
 
@@ -316,7 +332,7 @@ void flashErrorLEDOnErrorsThread() {
       delay(100);
 
   } else {
-    digitalWrite(pinHasError, LOW);
+    digitalWrite(pinHasError, HIGH);
   }
   
 }
