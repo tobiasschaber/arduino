@@ -8,7 +8,7 @@ public class Start {
 
     public static void main(String... args) throws Exception {
 
-        MQTTConnector connector = new MQTTConnector("testtopic", "tcp://localhost:1883");
+        MQTTConnector connector = new MQTTConnector("weather", "tcp://localhost:1883");
         MessageHandler handler = new MessageHandler();
         connector.connect();
 

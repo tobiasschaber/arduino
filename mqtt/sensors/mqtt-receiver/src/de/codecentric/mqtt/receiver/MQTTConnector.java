@@ -40,7 +40,7 @@ public class MQTTConnector {
     }
 
     public void disconnect() throws Exception {
-        System.out.println("DIsconnecting");
+        System.out.println("Disconnecting");
         client.disconnect();
     }
 
