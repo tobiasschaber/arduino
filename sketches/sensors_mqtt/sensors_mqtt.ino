@@ -5,7 +5,7 @@
 #include <TaskScheduler.h>
 
 /* sensor and component libraries */
-//#include <BH1750FVI.h>      // light sensor
+//#include <BH1750FVI.h>    // light sensor
 #include <DHT.h>            // temperature sensor
 #include <ESP8266WiFi.h>    // wlan module
 
@@ -17,7 +17,7 @@
 #define globalDelayMs 5000
 
 /* mqtt server information */
-#define mqttHost      "192.168.0.13"
+#define mqttHost      "172.17.21.149"
 #define mqttPort      (1883)
 
 /* mqtt client id of this device */
@@ -47,7 +47,7 @@ char* wlanPass2 = "jmca2165";
 //BH1750FVI     lightSensor;
 DHT           dht(pinDHTsensor, DHT22);  WiFiClient    espClient;
 PubSubClient  mqttClient(espClient);
-Ultrasonic ultrasonic(pinDistTrig, pinDistEcho); // (Trig PIN,Echo PIN)
+Ultrasonic ultrasonic(pinDistTrig, pinDistEcho, 10000); // (Trig PIN,Echo PIN)
 
 /* value-holding variables */
 uint16_t      lightIntensity = 0;
