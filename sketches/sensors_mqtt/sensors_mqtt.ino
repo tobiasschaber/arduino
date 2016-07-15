@@ -1,3 +1,5 @@
+#include <BH1750FVI.h>
+
 #include <Ultrasonic.h>
 
 #include <stdio.h>
@@ -5,7 +7,7 @@
 #include <TaskScheduler.h>
 
 /* sensor and component libraries */
-//#include <BH1750FVI.h>    // light sensor
+
 #include <DHT.h>            // temperature sensor
 #include <ESP8266WiFi.h>    // wlan module
 
@@ -34,20 +36,24 @@ char* wlanPass1 = "MajorTom";
 char* wlanPass2 = "jmca2165";
 
 /* pin definitions */
-#define pinDHTsensor  D1
-#define pinWLANbutton D2
+#define pinDHTsensor  D5
+#define pinWLANbutton D3
 
-#define pinHasError   D5
+#define pinHasError   D6
 #define pinStatusLED  BUILTIN_LED
 
-#define pinDistEcho   D4
-#define pinDistTrig   D3
+#define pinDistEcho   D8
+#define pinDistTrig   D7
+
+#define pinLightScl   D1
+#define pinLightSda   D2
 
 /* sensor components */
-//BH1750FVI     lightSensor;
-DHT           dht(pinDHTsensor, DHT22);  WiFiClient    espClient;
+BH1750FVI     lightSensor;
+DHT           dht(pinDHTsensor, DHT22);  
+WiFiClient    espClient;
 PubSubClient  mqttClient(espClient);
-Ultrasonic ultrasonic(pinDistTrig, pinDistEcho, 10000); // (Trig PIN,Echo PIN)
+Ultrasonic    ultrasonic(pinDistTrig, pinDistEcho, 30000); // (Trig PIN,Echo PIN)
 
 /* value-holding variables */
 uint16_t      lightIntensity = 0;
@@ -66,7 +72,7 @@ void flashErrorLEDOnErrorsThread();
 
 Task connectWLANTask(200, TASK_FOREVER, &connectWLANThread);
 Task connectMQTTTask(1000, TASK_FOREVER, &connectMQTTThread);
-Task sendMQTTTask(5000, TASK_FOREVER, &sendMQTTThread);
+Task sendMQTTTask(1000, TASK_FOREVER, &sendMQTTThread);
 Task flashErrorLEDOnErrorsTask(200, TASK_FOREVER, &flashErrorLEDOnErrorsThread);
 
 
@@ -75,8 +81,6 @@ Task flashErrorLEDOnErrorsTask(200, TASK_FOREVER, &flashErrorLEDOnErrorsThread);
    SETUP method
    ============================================================================================================================ */
 void setup() {
-
-
 
   Serial.begin(115200);
 
@@ -91,10 +95,10 @@ void setup() {
   digitalWrite(pinStatusLED, HIGH);
 
   dht.begin();
-  //lightSensor.begin();
+  lightSensor.begin();
 
-  //LightSensor.SetAddress(Device_Address_L);
-  //LightSensor.SetMode(Continuous_H_resolution_Mode);
+  lightSensor.SetAddress(Device_Address_L);
+  lightSensor.SetMode(Continuous_H_resolution_Mode);
 
   mqttClient.setServer(mqttHost, mqttPort);
 
@@ -115,8 +119,6 @@ void setup() {
    LOOP method
    ============================================================================================================================ */
 void loop() {
-
-   
 
  runner.execute();
 
@@ -301,11 +303,15 @@ void flashStatusLED() {
    ============================================================================================================================ */
 void sendMQTTThread() {
 
+  uint16_t lightIntens = lightSensor.GetLightIntensity();
+  Serial.print("LIGHT:");
+  Serial.println(lightIntens);
+
   long range = -1;
 
   /* give 10 tries to get a valid distance value */
   for(int i=0; i<10; i++) {
-    long range = ultrasonic.Ranging(CM);
+    range = ultrasonic.Ranging(CM);
 
       if(range != 0) {
         i = 10;
@@ -331,14 +337,22 @@ void sendMQTTThread() {
 
   String s = "";
   s += "{\n";
+  
   s += "\"temperatur\" : \"";
   s += t;
   s += "\",\n";
+
+  s += "\"light\" : \"";
+  s += lightIntens;
+  s += "\",\n";
+  
   s += "\"feuchtigkeit\" : \"";
   s += h;
   s += "\",\n";
+  
   s += "\"distance\" : \"";
   s += range;
+  
   s += "\"\n}";
 
   const char* msg = s.c_str();
