@@ -1,8 +1,11 @@
+#include <TimeLib.h>
+#include <Time.h>
+
+
+
 #include <BH1750FVI.h>
 
 #include <Ultrasonic.h>
-
-#include <stdio.h>
 
 #include <TaskScheduler.h>
 
@@ -15,15 +18,13 @@
 #include <Wire.h>           // I2C library
 #include <PubSubClient.h>   // mqtt library
 
-/* global delay for each turnaround */
-#define globalDelayMs 5000
-
 /* mqtt server information */
-#define mqttHost      "172.17.21.149"
+#define mqttHost      "192.168.0.13"
+//#define mqttHost      "172.17.21.149"
 #define mqttPort      (1883)
 
 /* mqtt client id of this device */
-#define clientId      "sensorClient"
+#define clientId  "sensorClient"
 
 /* WLAN credentials */
 char* wlanSSID0 = "Kfb_Outpost";
@@ -48,6 +49,8 @@ char* wlanPass2 = "jmca2165";
 #define pinLightScl   D1
 #define pinLightSda   D2
 
+#define pinAlarmSound D4
+
 /* sensor components */
 BH1750FVI     lightSensor;
 DHT           dht(pinDHTsensor, DHT22);  
@@ -69,11 +72,13 @@ void connectWLANThread();
 void connectMQTTThread();
 void sendMQTTThread();
 void flashErrorLEDOnErrorsThread();
+void distanceAlarmThread();
 
 Task connectWLANTask(200, TASK_FOREVER, &connectWLANThread);
 Task connectMQTTTask(1000, TASK_FOREVER, &connectMQTTThread);
 Task sendMQTTTask(1000, TASK_FOREVER, &sendMQTTThread);
 Task flashErrorLEDOnErrorsTask(200, TASK_FOREVER, &flashErrorLEDOnErrorsThread);
+Task distanceAlarmTask(50, TASK_FOREVER, &distanceAlarmThread);
 
 
 
@@ -91,8 +96,11 @@ void setup() {
   pinMode(pinStatusLED, OUTPUT);
   pinMode(pinDistEcho, INPUT);
   pinMode(pinDistTrig, OUTPUT);
+  pinMode(pinAlarmSound, OUTPUT);
   
   digitalWrite(pinStatusLED, HIGH);
+
+
 
   dht.begin();
   lightSensor.begin();
@@ -108,9 +116,11 @@ void setup() {
   runner.addTask(connectMQTTTask);
   runner.addTask(sendMQTTTask);
   runner.addTask(flashErrorLEDOnErrorsTask);
+  runner.addTask(distanceAlarmTask);
 
   flashErrorLEDOnErrorsTask.enable();
   connectWLANTask.enable();
+  distanceAlarmTask.enable();
 
 }
 
@@ -138,7 +148,7 @@ void connectWLANThread() {
   if (digitalRead(pinWLANbutton) == HIGH || currentWlanId == -1) {
 
     /* give user feedback to button pushed */
-    flashStatusLED();
+    flashStatusLED(4);
 
     logMessage("setting up new wlan connection", true);
     
@@ -254,7 +264,7 @@ void sendMQTTMessage(char* topic, const char* message) {
   if (mqttClient.connected()) {
     
     logMessage("sending message...");
-    flashStatusLED();
+    flashStatusLED(1);
     
     mqttClient.publish(topic, message);
   } else {
@@ -285,16 +295,15 @@ void logMessage(String msg) {
 /* ============================================================================================================================
    ============================================================================================================================
    ============================================================================================================================ */
-void flashStatusLED() {
+void flashStatusLED(int ct) {
 
-  digitalWrite(pinStatusLED, LOW);
-  delay(50);
-  digitalWrite(pinStatusLED, HIGH);
-  delay(50);
-  digitalWrite(pinStatusLED, LOW);
-  delay(50);
-  digitalWrite(pinStatusLED, HIGH);
-  delay(50);
+  for(int i=0; i<ct; i++) {
+    digitalWrite(pinStatusLED, LOW);
+    delay(50);
+    digitalWrite(pinStatusLED, HIGH);
+    delay(50);    
+  }
+
 }
 
 
@@ -335,25 +344,37 @@ void sendMQTTThread() {
     Serial.println(" %");
  }
 
+  time_t tt = now();
+   setTime(tt); 
+  Serial.println("000000000000000000000000000000000");
+  Serial.println(year(tt));
+  Serial.println(month(tt));
+
+  //yyyy-MM-dd'T'HH:mm:ss.SSSXXX
+
+
+
+        //json.append(" \"@timestamp\": \"").append(tsformatter.format(current)).append("\",");
+
   String s = "";
   s += "{\n";
   
-  s += "\"temperatur\" : \"";
+  s += "\"temperatur\" : ";
   s += t;
-  s += "\",\n";
+  s += ",\n";
 
-  s += "\"light\" : \"";
+  s += "\"light\" : ";
   s += lightIntens;
-  s += "\",\n";
+  s += ",\n";
   
-  s += "\"feuchtigkeit\" : \"";
+  s += "\"feuchtigkeit\" : ";
   s += h;
-  s += "\",\n";
+  s += ",\n";
   
-  s += "\"distance\" : \"";
+  s += "\"distance\" : ";
   s += range;
   
-  s += "\"\n}";
+  s += "\n}";
 
   const char* msg = s.c_str();
  
@@ -389,5 +410,22 @@ void disconnectMQTT() {
   connectMQTTTask.disable();
   mqttClient.disconnect();
 
+}
+
+
+void distanceAlarmThread() {
+
+  long  range = ultrasonic.Ranging(CM);
+
+  if(range < 100) {
+
+    // TODO: ALARM ACTION HERE
+
+  } else {
+
+    // RESET ALARM HERE
+
+  }
+  
 }
 
