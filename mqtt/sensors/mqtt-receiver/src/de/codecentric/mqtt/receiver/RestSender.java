@@ -26,20 +26,16 @@ public class RestSender implements Runnable {
 
        try {
 
-           //yyyy-MM-dd'T'HH:mm:ss.SSSXXX
 
-            DateFormat tsformatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-            String time = tsformatter.format(new Date().getTime());
+           // ssh -i elkweather.pem ec2-user@ec2-52-29-251-255.eu-central-1.compute.amazonaws.com
 
-           String fullMsg = msg.replace("{\n", "{\n\"@timestamp\" : \"" + time + "\",\n");
-
-            HttpResponse<String> postResponse = Unirest.post("http://10.0.3.131:9200/arduino/info")
+            HttpResponse<String> postResponse = Unirest.post("https://search-cc-ka-sensors-elk-qxbxpbn4xrjqfax47oujso7b7i.eu-central-1.es.amazonaws.com/weather/info")
                     .header("accept", "application/json")
                     .header("Content-Type", "application/json")
-                    .basicAuth("esadmin", "esadmin")
-                    .body(fullMsg).asString();
+                    //.basicAuth("esadmin", "esadmin")
+                    .body(msg).asString();
 
-           System.out.println(fullMsg);
+           System.out.println(msg);
             System.out.println("---");
 //            System.out.println(postResponse.getBody());
 //            System.out.println(postResponse.getStatusText());
