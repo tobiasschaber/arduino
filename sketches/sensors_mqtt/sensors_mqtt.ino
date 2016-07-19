@@ -19,18 +19,10 @@
 #include <Ultrasonic.h>     // distance sensor
 #include <DHT.h>            // temperature sensor
 
-
-
-/* WLAN and MQTT configuration */
-// default is 128 which is not sufficient
-#ifndef MQTT_MAX_PACKET_SIZE
-#define MQTT_MAX_PACKET_SIZE 512
-#endif
-
 /* sensor and component libraries */
 
 #include <ESP8266WiFi.h>    // wlan module
-#include <WiFiUdp.h>
+#include <WiFiUdp.h>        // wlan UDP module for NTP time sync
 #include <PubSubClient.h>   // mqtt library
 
 /* other libraries */
@@ -39,8 +31,6 @@
 
 /* mqtt client id of this device */
 #define clientId  "sensorClient"
-
-#define mqttPort      (1883)
 
 /* WLAN credentials */
 char* wlanSSID0 = "Kfb_Outpost";
@@ -51,9 +41,10 @@ char* wlanSSID2 = "AndroidAP";
 //#define mqttHost1      "172.17.21.149"
 //#define mqttHost2      "172.17.21.149"
 
-#define mqttHost0      "52.29.251.255"
-#define mqttHost1      "52.29.251.255"
-#define mqttHost2      "52.29.251.255"
+#define mqttPort      (1883)
+#define mqttHost0     "52.29.251.255"
+#define mqttHost1     "52.29.251.255"
+#define mqttHost2     "52.29.251.255"
 
 
 char* wlanPass0 = "tobiasSCHABERundNADINEseeger";
@@ -64,16 +55,15 @@ char* wlanPass2 = "jmca2165";
 #define pinDHTsensor  D5
 #define pinWLANbutton D3
 
-#define pinHasError   D6
-#define pinStatusLED  BUILTIN_LED
+#define pinHasError   D6              // GEEIGNET
+#define pinStatusLED  BUILTIN_LED     // GEEIGNET
+#define NOTUSED       D4              // NOCH FREI!
 
 #define pinDistEcho   D8
 #define pinDistTrig   D7
 
 #define pinLightScl   D1
 #define pinLightSda   D2
-
-#define pinAlarmSound D4
 
 /* sensor components */
 BH1750FVI     lightSensor;
@@ -130,7 +120,6 @@ void setup() {
   pinMode(pinStatusLED, OUTPUT);
   pinMode(pinDistEcho, INPUT);
   pinMode(pinDistTrig, OUTPUT);
-  pinMode(pinAlarmSound, OUTPUT);
   
   digitalWrite(pinStatusLED, HIGH);
 
@@ -179,7 +168,7 @@ void connectWLANThread() {
   if (digitalRead(pinWLANbutton) == HIGH || currentWlanId == -1) {
 
     /* give user feedback to button pushed */
-    flashStatusLED(4);
+    flashStatusLED(6, 25);
 
     logMessage("setting up new wlan connection", true);
     
@@ -233,12 +222,13 @@ void connectWLANThread() {
 
       logMessage("SUCCESS: connected to WLAN. IP: ", false);
       logMessage(WiFi.localIP().toString());
+      flashStatusLED(2, 100);
 
       Serial.println("waiting for time sync");
       udp.begin(localTimePort);
       delay(100);
       setSyncProvider(getNtpTime);
-      setSyncInterval(600);
+      setSyncInterval(86400);
 
       while(timeStatus()== timeNotSet) {
         getNtpTime();
@@ -337,7 +327,7 @@ void sendMQTTMessage(char* topic, const char* message) {
   if (mqttClient.connected()) {
 
     logMessage("== sending message... ================================");
-    flashStatusLED(1);
+    flashStatusLED(1, 10);
 
     
     bool msgOk = mqttClient.publish(topic, message);
@@ -374,13 +364,16 @@ void logMessage(String msg) {
 /* ============================================================================================================================
    simply flashes the status LED ct times.
    ============================================================================================================================ */
-void flashStatusLED(int ct) {
+void flashStatusLED(int ct, int wait) {
+
+  /* default value for wait time */
+  if(wait == -1) wait = 50;
 
   for(int i=0; i<ct; i++) {
     digitalWrite(pinStatusLED, LOW);
-    delay(50);
+    delay(wait);
     digitalWrite(pinStatusLED, HIGH);
-    delay(50);    
+    delay(wait);
   }
 
 }
@@ -545,7 +538,7 @@ time_t getNtpTime() {
   Serial.println(ntpServerIP);
   sendNTPpacket(ntpServerIP);
   uint32_t beginWait = millis();
-  while (millis() - beginWait < 2500) {
+  while (millis() - beginWait < 1500) {
     int size = udp.parsePacket();
     if (size >= NTP_PACKET_SIZE) {
       Serial.println("Receive NTP Response");
