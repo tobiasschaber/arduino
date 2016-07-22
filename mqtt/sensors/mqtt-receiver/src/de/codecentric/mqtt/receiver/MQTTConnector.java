@@ -14,15 +14,16 @@ public class MQTTConnector {
 
     private String topic;
     private String broker;
-    private final String clientId = "mqttReceiver";
+    private final String clientId;
     private MemoryPersistence persistence;
     private MqttClient client;
     private MqttConnectOptions opts;
 
     int qos = 2;
 
-    public MQTTConnector(String topic, String broker) throws Exception {
+    public MQTTConnector(String topic, String broker, String clientId) throws Exception {
 
+        this.clientId = clientId;
         this.topic = topic;
         this.broker = broker;
 

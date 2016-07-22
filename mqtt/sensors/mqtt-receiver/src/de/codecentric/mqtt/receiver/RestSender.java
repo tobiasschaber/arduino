@@ -15,8 +15,12 @@ public class RestSender implements Runnable {
 
     private String msg;
 
-    public RestSender( String msg) {
+    private String topic;
+
+    public RestSender( String msg, String topic)
+    {
         this.msg = msg;
+        this.topic = topic;
     }
 
 
@@ -29,7 +33,7 @@ public class RestSender implements Runnable {
 
            // ssh -i elkweather.pem ec2-user@ec2-52-29-251-255.eu-central-1.compute.amazonaws.com
 
-            HttpResponse<String> postResponse = Unirest.post("https://search-cc-ka-sensors-elk-qxbxpbn4xrjqfax47oujso7b7i.eu-central-1.es.amazonaws.com/weather/info")
+            HttpResponse<String> postResponse = Unirest.post("https://search-cc-ka-sensors-elk-qxbxpbn4xrjqfax47oujso7b7i.eu-central-1.es.amazonaws.com/" + topic + "/info")
                     .header("accept", "application/json")
                     .header("Content-Type", "application/json")
                     //.basicAuth("esadmin", "esadmin")

@@ -15,8 +15,10 @@ import java.util.UUID;
  */
 public class MessageHandler implements MqttCallback {
 
-    public MessageHandler() {
+    private String topic;
 
+    public MessageHandler(String topic) {
+        this.topic = topic;
     }
 
     @Override
@@ -32,7 +34,7 @@ public class MessageHandler implements MqttCallback {
 //        System.out.println(msg);
 //        System.out.println("==========================================================");
 
-        RestSender rs = new RestSender(msg);
+        RestSender rs = new RestSender(msg, topic);
         new Thread(rs).start();
 
     }
