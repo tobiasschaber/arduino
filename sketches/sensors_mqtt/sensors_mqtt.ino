@@ -38,23 +38,11 @@
 
 
 /* WLAN credentials */
-char* wlanSSID0 = "Kfb_Outpost";
-char* wlanSSID1 = "codecentric";
-char* wlanSSID2 = "AndroidAP";
-
-//#define mqttHost0      "192.168.0.13"
-//#define mqttHost1      "172.17.21.149"
-//#define mqttHost2      "172.17.21.149"
+String wlanSSIDs[3] = {"Kfb_Outpost",                 "codecentric",  "AndroidAP"};
+String wlanPws[3]   = {"tobiasSCHABERundNADINEseeger","MajorTom",     "jmca2165"};
 
 #define mqttPort      (1883)
-#define mqttHost0     "52.29.251.255"
-#define mqttHost1     "52.29.251.255"
-#define mqttHost2     "52.29.251.255"
-
-
-char* wlanPass0 = "tobiasSCHABERundNADINEseeger";
-char* wlanPass1 = "MajorTom";
-char* wlanPass2 = "jmca2165";
+#define mqttHost     "52.29.251.255"
 
 /* pin definitions */
 
@@ -177,19 +165,19 @@ int scanWLANNetworks() {
   
    for(int i=0; i<n; i++) {
   
-    if(WiFi.SSID(i) == wlanSSID0) {
+    if(WiFi.SSID(i) == wlanSSIDs[0]) {
       logMessage("found wlan: ", false);
       logMessage(WiFi.SSID(i), true);
       return 0;
     }
   
-    if(WiFi.SSID(i) == wlanSSID1) {
+    if(WiFi.SSID(i) == wlanSSIDs[1]) {
       logMessage("found wlan: ", false);
       logMessage(WiFi.SSID(i), true);
       return 1;
     }
   
-    if(WiFi.SSID(i) == wlanSSID2) {
+    if(WiFi.SSID(i) == wlanSSIDs[2]) {
       logMessage("found wlan: ", false);
       logMessage(WiFi.SSID(i), true);
       return 2;
@@ -207,8 +195,8 @@ int scanWLANNetworks() {
 void connectWLANThread() {
 
   /* set default WLAN credentials */
-  char* useSSID = wlanSSID0;
-  char* usePass = wlanPass0;
+  String useSSID = wlanSSIDs[0];
+  String usePass = wlanPws[0];
 
   /* if "switch wlan button" is pressed or intial mode */
   if (digitalRead(pinWLANbutton) == HIGH || currentWlanId == -1) {
@@ -223,26 +211,17 @@ void connectWLANThread() {
     currentWlanId = scanWLANNetworks();
   }
 
-
   /* select the wlan setting to use */
-  if (currentWlanId == 0) {
-    useSSID = wlanSSID0;
-    usePass = wlanPass0;
-  } else {
-    if (currentWlanId == 1) {
-      useSSID = wlanSSID1;
-      usePass = wlanPass1;
-    } else {
-      useSSID = wlanSSID2;
-      usePass = wlanPass2;
-    }
-  }
+  useSSID = wlanSSIDs[currentWlanId];
+  usePass = wlanPws[currentWlanId];
 
   if (WiFi.status() == WL_IDLE_STATUS || WiFi.status() == WL_DISCONNECTED || WiFi.status() == WL_NO_SSID_AVAIL) {
     logMessage("connecting to wlan: ", false);
     logMessage(useSSID);
 
-    WiFi.begin(useSSID, usePass);
+
+
+    WiFi.begin(useSSID.c_str(), usePass.c_str());
   }
 
 
@@ -251,10 +230,7 @@ void connectWLANThread() {
     isWlanConnected = false;
   } else {
 
-
-    
     /* recognize first run after successfull connection */
-    
     
     if(!isWlanConnected) {
 
@@ -386,19 +362,6 @@ void connectMQTTThread() {
   if (!mqttClient.connected()) {
 
     logMessage("connecting to MQTT server...");
-
-    char* mqttHost;
-
-    /* select the wlan setting to use */
-    if (currentWlanId == 0) {
-      mqttHost = mqttHost0;
-    } else {
-      if (currentWlanId == 1) {
-        mqttHost = mqttHost1;
-      } else {
-        mqttHost = mqttHost2;
-      }
-    }
 
     mqttClient.setServer(mqttHost, mqttPort);
 
