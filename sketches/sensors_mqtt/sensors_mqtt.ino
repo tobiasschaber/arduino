@@ -83,7 +83,7 @@ Ultrasonic    ultrasonic(pinDistTrig, pinDistEcho, 30000); // (Trig PIN,Echo PIN
 
 /* value-holding variables */
 uint16_t      lightIntensity = 0;
-uint8_t       currentWlanId  = -1;
+int           currentWlanId  = -1;
 
 /* error indicators */
 bool          hasWLANError    = false;
@@ -114,6 +114,9 @@ Task sendMQTTTask(1000, TASK_FOREVER, &sendMQTTThread);
 
 
 void setup() {
+
+  currentWlanId  = -1;
+
   Serial.begin(115200);
   
   Wire.begin(pinLightSda, pinLightScl);
@@ -158,7 +161,44 @@ void loop() {
 
 
 
+/* ============================================================================================================================
+   scan for available WLAN networks
+   ============================================================================================================================ */
+int scanWLANNetworks() {
+  
+  logMessage("scanning for networks...", false);
+  int n = WiFi.scanNetworks();
+  logMessage("done", true);
 
+   if (n == 0) {
+    logMessage("no networks found", false);
+    return -1;
+   }
+  
+   for(int i=0; i<n; i++) {
+  
+    if(WiFi.SSID(i) == wlanSSID0) {
+      logMessage("found wlan: ", false);
+      logMessage(WiFi.SSID(i), true);
+      return 0;
+    }
+  
+    if(WiFi.SSID(i) == wlanSSID1) {
+      logMessage("found wlan: ", false);
+      logMessage(WiFi.SSID(i), true);
+      return 1;
+    }
+  
+    if(WiFi.SSID(i) == wlanSSID2) {
+      logMessage("found wlan: ", false);
+      logMessage(WiFi.SSID(i), true);
+      return 2;
+    }
+  }
+
+  logMessage("found no known wlan");
+  return 0;
+}
 
 
 /* ============================================================================================================================
@@ -169,12 +209,10 @@ void connectWLANThread() {
   /* set default WLAN credentials */
   char* useSSID = wlanSSID0;
   char* usePass = wlanPass0;
-  
 
   /* if "switch wlan button" is pressed or intial mode */
   if (digitalRead(pinWLANbutton) == HIGH || currentWlanId == -1) {
 
-    
     logMessage("setting up new wlan connection", true);
 
     if (WiFi.status() == WL_CONNECTED) {
@@ -182,17 +220,9 @@ void connectWLANThread() {
       logMessage("disconnected from current wlan", true);
     }
 
-    /* rotate through all available wlan settings */
-    if (currentWlanId == 0) {
-      currentWlanId = 1;
-    } else {
-      if (currentWlanId == 1) {
-        currentWlanId = 2;
-      } else {
-        currentWlanId = 0;
-      }
-    }
+    currentWlanId = scanWLANNetworks();
   }
+
 
   /* select the wlan setting to use */
   if (currentWlanId == 0) {
