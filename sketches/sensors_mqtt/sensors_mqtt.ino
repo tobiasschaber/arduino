@@ -1,5 +1,8 @@
 
 
+#include <LiquidCrystal.h>
+
+
 /*
  * IMPORTANT NOTE:
  * 
@@ -32,6 +35,8 @@
 /* mqtt client id of this device */
 #define clientId  "sensorClient"
 
+
+
 /* WLAN credentials */
 char* wlanSSID0 = "Kfb_Outpost";
 char* wlanSSID1 = "codecentric";
@@ -52,22 +57,25 @@ char* wlanPass1 = "MajorTom";
 char* wlanPass2 = "jmca2165";
 
 /* pin definitions */
-#define pinDHTsensor  D5
-#define pinWLANbutton D3
 
-#define pinHasError   D6              // GEEIGNET
-#define pinStatusLED  BUILTIN_LED     // GEEIGNET
-#define NOTUSED       D4              // NOCH FREI!
+#define pinWLANbutton BUILTIN_LED // = D0
 
+#define pinDistTrig   D6
 #define pinDistEcho   D8
-#define pinDistTrig   D7
 
-#define pinLightScl   D1
-#define pinLightSda   D2
+#define pinLightScl   D3
+#define pinLightSda   D4
 
-/* sensor components */
+#define spiClk        D5
+#define spiMosi       D7
+#define spiLatch      D2   
+
+// TODO: REPLACE THIS IF SPI USED!
+#define pinDHTsensor  D1
+
+
 BH1750FVI     lightSensor;
-DHT           dht(pinDHTsensor, DHT22);  
+DHT           dht(pinDHTsensor, DHT22);
 WiFiClient    espClient;
 WiFiUDP       udp;
 PubSubClient  mqttClient(espClient);
@@ -96,49 +104,43 @@ Scheduler runner;
 void connectWLANThread();
 void connectMQTTThread();
 void sendMQTTThread();
-void flashErrorLEDOnErrorsThread();
 void distanceAlarmThread();
 
 Task connectWLANTask(200, TASK_FOREVER, &connectWLANThread);
+Task distanceAlarmTask(50, TASK_FOREVER, &distanceAlarmThread);
 Task connectMQTTTask(1000, TASK_FOREVER, &connectMQTTThread);
 Task sendMQTTTask(1000, TASK_FOREVER, &sendMQTTThread);
-Task flashErrorLEDOnErrorsTask(200, TASK_FOREVER, &flashErrorLEDOnErrorsThread);
-Task distanceAlarmTask(50, TASK_FOREVER, &distanceAlarmThread);
 
 
 
-/* ============================================================================================================================
-   SETUP method
-   ============================================================================================================================ */
 void setup() {
   Serial.begin(115200);
+  
+  Wire.begin(pinLightSda, pinLightScl);
 
   Serial.println("BOOTING NOW...");
 
   pinMode(pinWLANbutton, INPUT);
-  pinMode(pinHasError, OUTPUT);
-  pinMode(pinStatusLED, OUTPUT);
+  //digitalWrite(pinWLANbutton, LOW);
+  
+  //pinMode(pinStatusLED, OUTPUT);
   pinMode(pinDistEcho, INPUT);
   pinMode(pinDistTrig, OUTPUT);
-  
-  digitalWrite(pinStatusLED, HIGH);
-
 
   dht.begin();
   lightSensor.begin();
 
-  lightSensor.SetAddress(Device_Address_L);
+  lightSensor.SetAddress(0x23); /* set i2c address. 0x23 means: address pin is pinned to GND!" */
   lightSensor.SetMode(Continuous_H_resolution_Mode);
 
   runner.init();
 
   runner.addTask(connectWLANTask);
+  runner.addTask(distanceAlarmTask);
   runner.addTask(connectMQTTTask);
   runner.addTask(sendMQTTTask);
-  runner.addTask(flashErrorLEDOnErrorsTask);
-  runner.addTask(distanceAlarmTask);
 
-  flashErrorLEDOnErrorsTask.enable();
+  
   connectWLANTask.enable();
   distanceAlarmTask.enable();
 
@@ -150,9 +152,13 @@ void setup() {
    ============================================================================================================================ */
 void loop() {
 
- runner.execute();
+  runner.execute();
 
 }
+
+
+
+
 
 
 /* ============================================================================================================================
@@ -163,17 +169,17 @@ void connectWLANThread() {
   /* set default WLAN credentials */
   char* useSSID = wlanSSID0;
   char* usePass = wlanPass0;
+  
 
   /* if "switch wlan button" is pressed or intial mode */
   if (digitalRead(pinWLANbutton) == HIGH || currentWlanId == -1) {
 
-    /* give user feedback to button pushed */
-    flashStatusLED(6, 25);
-
-    logMessage("setting up new wlan connection", true);
     
+    logMessage("setting up new wlan connection", true);
+
     if (WiFi.status() == WL_CONNECTED) {
       disconnectWLAN();
+      logMessage("disconnected from current wlan", true);
     }
 
     /* rotate through all available wlan settings */
@@ -214,15 +220,18 @@ void connectWLANThread() {
     hasWLANError = true;
     isWlanConnected = false;
   } else {
+
+
     
     /* recognize first run after successfull connection */
+    
+    
     if(!isWlanConnected) {
 
       isWlanConnected = true;
 
       logMessage("SUCCESS: connected to WLAN. IP: ", false);
       logMessage(WiFi.localIP().toString());
-      flashStatusLED(2, 100);
 
       Serial.println("waiting for time sync");
       udp.begin(localTimePort);
@@ -243,35 +252,98 @@ void connectWLANThread() {
    
     hasWLANError = false;
     connectMQTTTask.enable();
+
+    
   }
 
 }
+
+
 
 
 /* ============================================================================================================================
-   disconnect WLAN
+   ============================================================================================================================
    ============================================================================================================================ */
-void disconnectWLAN() {
-
-  isWlanConnected = false;
-
-  /* try to disconnect if already connected */
-  if (WiFi.status() == WL_CONNECTED) {
-    disconnectMQTT();
-
-    logMessage("disconnecting from wlan");
-    WiFi.disconnect();
-
-    /* try to disconnect */
-    for (int ct = 0; ct < 100; ct++) {
-      if (WiFi.status() != WL_DISCONNECTED) {
-        delay(100);
-      } else {
-        ct = 100;
-      }
-    }
+void logMessage(String msg, bool nl) {
+  if (nl) {
+    Serial.println(msg);
+  } else {
+    Serial.print(msg);
   }
 }
+
+/* ============================================================================================================================
+   ============================================================================================================================
+   ============================================================================================================================ */
+void logMessage(String msg) {
+  logMessage(msg, true);
+}
+
+
+
+
+/* ============================================================================================================================
+   check the NTP time server for new time info (not implemented by me)
+   ============================================================================================================================ */
+time_t getNtpTime() {
+  IPAddress ntpServerIP; // NTP server's ip address
+
+  while (udp.parsePacket() > 0) ; // discard any previously received packets
+  Serial.println("Transmit NTP Request...");
+  // get a random server from the pool
+  WiFi.hostByName(ntpServerName, ntpServerIP);
+  Serial.print(ntpServerName);
+  Serial.print(": ");
+  Serial.println(ntpServerIP);
+  sendNTPpacket(ntpServerIP);
+  uint32_t beginWait = millis();
+  while (millis() - beginWait < 1500) {
+    int size = udp.parsePacket();
+    if (size >= NTP_PACKET_SIZE) {
+      Serial.println("Receive NTP Response");
+      udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+      unsigned long secsSince1900;
+      // convert four bytes starting at location 40 to a long integer
+      secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
+      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
+      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
+      secsSince1900 |= (unsigned long)packetBuffer[43];
+      return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+    }
+  }
+  Serial.println("No NTP Response :-(");
+  return 0; // return 0 if unable to get the time
+}
+
+
+
+/* ============================================================================================================================
+   send the get NTP time request (not implemented by me)
+   ============================================================================================================================ */
+unsigned long sendNTPpacket(IPAddress& address) {
+  Serial.println("sending NTP packet...");
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  // (see URL above for details on the packets)
+  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+  packetBuffer[1] = 0;     // Stratum, or type of clock
+  packetBuffer[2] = 6;     // Polling Interval
+  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12]  = 49;
+  packetBuffer[13]  = 0x4E;
+  packetBuffer[14]  = 49;
+  packetBuffer[15]  = 52;
+
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:
+  udp.beginPacket(address, 123); //NTP requests are to port 123
+  udp.write(packetBuffer, NTP_PACKET_SIZE);
+  udp.endPacket();
+}
+
+
 
 
 
@@ -316,66 +388,6 @@ void connectMQTTThread() {
 
     hasMQTTError = false;
   }
-}
-
-
-
-/* ============================================================================================================================
-   ============================================================================================================================
-   ============================================================================================================================ */
-void sendMQTTMessage(char* topic, const char* message) {
-  if (mqttClient.connected()) {
-
-    logMessage("== sending message... ================================");
-    flashStatusLED(1, 10);
-
-    
-    bool msgOk = mqttClient.publish(topic, message);
-
-    if(msgOk != true) {
-      Serial.println("error sending message. message too long? see MQTT_MAX_PACKET_SIZE in PubSubClient.h!");
-    }
-    
-  } else {
-    logMessage("not connected, can not send message via mqtt", true);
-  }
-}
-
-
-/* ============================================================================================================================
-   ============================================================================================================================
-   ============================================================================================================================ */
-void logMessage(String msg, bool nl) {
-  if (nl) {
-    Serial.println(msg);
-  } else {
-    Serial.print(msg);
-  }
-}
-
-/* ============================================================================================================================
-   ============================================================================================================================
-   ============================================================================================================================ */
-void logMessage(String msg) {
-  logMessage(msg, true);
-}
-
-
-/* ============================================================================================================================
-   simply flashes the status LED ct times.
-   ============================================================================================================================ */
-void flashStatusLED(int ct, int wait) {
-
-  /* default value for wait time */
-  if(wait == -1) wait = 50;
-
-  for(int i=0; i<ct; i++) {
-    digitalWrite(pinStatusLED, LOW);
-    delay(wait);
-    digitalWrite(pinStatusLED, HIGH);
-    delay(wait);
-  }
-
 }
 
 
@@ -444,117 +456,8 @@ void sendMQTTThread() {
 
 }
 
-/* ============================================================================================================================
-   simply flash the error LEDs
-   ============================================================================================================================ */
-void flashErrorLEDOnErrorsThread() {
-
-  /* if there currently are any known errors, flash LED */
-  if (hasWLANError || hasMQTTError) {
-
-    digitalWrite(pinHasError, LOW);
-    delay(100);
-    digitalWrite(pinHasError, HIGH);
-    delay(100);
-
-  } else {
-    digitalWrite(pinHasError, LOW);
-  }
-
-}
 
 
-/* ============================================================================================================================
-   disconnect from the mqtt server
-   ============================================================================================================================ */
-void disconnectMQTT() {
-
-  logMessage("disconnecting and disabling mqtt");
-  sendMQTTTask.disable();
-  connectMQTTTask.disable();
-  mqttClient.disconnect();
-
-}
-
-/* ============================================================================================================================
-   alarm thread which checks if there is a movement in the distance
-   ============================================================================================================================ */
-void distanceAlarmThread() {
-
-  long  range = ultrasonic.Ranging(CM);
-
-  if(range < 100) {
-
-    // TODO: ALARM ACTION HERE
-
-  } else {
-
-    // RESET ALARM HERE
-
-  }
-  
-}
-
-
-/* ============================================================================================================================
-   send the get NTP time request (not implemented by me)
-   ============================================================================================================================ */
-unsigned long sendNTPpacket(IPAddress& address) {
-  Serial.println("sending NTP packet...");
-  // set all bytes in the buffer to 0
-  memset(packetBuffer, 0, NTP_PACKET_SIZE);
-  // Initialize values needed to form NTP request
-  // (see URL above for details on the packets)
-  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
-  packetBuffer[1] = 0;     // Stratum, or type of clock
-  packetBuffer[2] = 6;     // Polling Interval
-  packetBuffer[3] = 0xEC;  // Peer Clock Precision
-  // 8 bytes of zero for Root Delay & Root Dispersion
-  packetBuffer[12]  = 49;
-  packetBuffer[13]  = 0x4E;
-  packetBuffer[14]  = 49;
-  packetBuffer[15]  = 52;
-
-  // all NTP fields have been given values, now
-  // you can send a packet requesting a timestamp:
-  udp.beginPacket(address, 123); //NTP requests are to port 123
-  udp.write(packetBuffer, NTP_PACKET_SIZE);
-  udp.endPacket();
-}
-
-
-/* ============================================================================================================================
-   check the NTP time server for new time info (not implemented by me)
-   ============================================================================================================================ */
-time_t getNtpTime() {
-  IPAddress ntpServerIP; // NTP server's ip address
-
-  while (udp.parsePacket() > 0) ; // discard any previously received packets
-  Serial.println("Transmit NTP Request...");
-  // get a random server from the pool
-  WiFi.hostByName(ntpServerName, ntpServerIP);
-  Serial.print(ntpServerName);
-  Serial.print(": ");
-  Serial.println(ntpServerIP);
-  sendNTPpacket(ntpServerIP);
-  uint32_t beginWait = millis();
-  while (millis() - beginWait < 1500) {
-    int size = udp.parsePacket();
-    if (size >= NTP_PACKET_SIZE) {
-      Serial.println("Receive NTP Response");
-      udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
-      unsigned long secsSince1900;
-      // convert four bytes starting at location 40 to a long integer
-      secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
-      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
-      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
-      secsSince1900 |= (unsigned long)packetBuffer[43];
-      return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
-    }
-  }
-  Serial.println("No NTP Response :-(");
-  return 0; // return 0 if unable to get the time
-}
 
 
 /* ============================================================================================================================
@@ -598,3 +501,110 @@ String getCurrentDateTimeString() {
   return dt;
 }
 
+
+/* ============================================================================================================================
+   disconnect from the mqtt server
+   ============================================================================================================================ */
+void disconnectMQTT() {
+
+  logMessage("disconnecting and disabling mqtt");
+  sendMQTTTask.disable();
+  connectMQTTTask.disable();
+  mqttClient.disconnect();
+
+}
+
+
+/* ============================================================================================================================
+   ============================================================================================================================
+   ============================================================================================================================ */
+void sendMQTTMessage(char* topic, const char* message) {
+  if (mqttClient.connected()) {
+
+    logMessage("== sending message... ================================");
+
+    
+    bool msgOk = mqttClient.publish(topic, message);
+
+    if(msgOk != true) {
+      Serial.println("error sending message. message too long? see MQTT_MAX_PACKET_SIZE in PubSubClient.h!");
+    }
+    
+  } else {
+    logMessage("not connected, can not send message via mqtt", true);
+  }
+}
+
+
+
+/* ============================================================================================================================
+   disconnect WLAN
+   ============================================================================================================================ */
+void disconnectWLAN() {
+
+  isWlanConnected = false;
+
+  /* try to disconnect if already connected */
+  if (WiFi.status() == WL_CONNECTED) {
+    disconnectMQTT();
+
+    logMessage("disconnecting from wlan");
+    WiFi.disconnect();
+
+    /* try to disconnect */
+    for (int ct = 0; ct < 100; ct++) {
+      if (WiFi.status() != WL_DISCONNECTED) {
+        delay(100);
+      } else {
+        ct = 100;
+      }
+    }
+
+    isWlanConnected = false;
+    
+  }
+}
+
+
+
+
+/* ============================================================================================================================
+   alarm thread which checks if there is a movement in the distance
+   ============================================================================================================================ */
+void distanceAlarmThread() {
+
+  long  range = ultrasonic.Ranging(CM);
+
+  if(range < 100) {
+    String statusMsg = "movement detected!";
+  
+  
+    String s = "";
+    s += "{\n";
+  
+    s += "\"@timestamp\" : \"";
+    s += getCurrentDateTimeString();
+    s += "\",\n";
+    
+    s += "\"distance\" : ";
+    s += range;
+    s += ",\n";
+  
+    s += "\"statusMessage\" : \"";
+    s += statusMsg;
+    s += "\"";
+    
+    s += "\n}";
+  
+    const char* msg = s.c_str();
+   
+    Serial.println(s);
+    sendMQTTMessage("distance", msg);
+
+  } else {
+
+    // RESET ALARM HERE
+
+  }
+  
+}
