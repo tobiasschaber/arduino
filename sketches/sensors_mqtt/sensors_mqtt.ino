@@ -48,6 +48,8 @@ String wlanPws[3]   = {"tobiasSCHABERundNADINEseeger","MajorTom",     "jmca2165"
 
 #define pinWLANbutton BUILTIN_LED // = D0
 
+#define pinDHTsensor  D1
+
 #define pinDistTrig   D6
 #define pinDistEcho   D8
 
@@ -58,8 +60,7 @@ String wlanPws[3]   = {"tobiasSCHABERundNADINEseeger","MajorTom",     "jmca2165"
 #define spiMosi       D7
 #define spiLatch      D2   
 
-// TODO: REPLACE THIS IF SPI USED!
-#define pinDHTsensor  D1
+
 
 
 BH1750FVI     lightSensor;
@@ -95,7 +96,7 @@ void sendMQTTThread();
 void distanceAlarmThread();
 
 Task connectWLANTask(200, TASK_FOREVER, &connectWLANThread);
-Task distanceAlarmTask(50, TASK_FOREVER, &distanceAlarmThread);
+Task distanceAlarmTask(100, TASK_FOREVER, &distanceAlarmThread);
 Task connectMQTTTask(1000, TASK_FOREVER, &connectMQTTThread);
 Task sendMQTTTask(1000, TASK_FOREVER, &sendMQTTThread);
 
@@ -109,7 +110,7 @@ void setup() {
   
   Wire.begin(pinLightSda, pinLightScl);
 
-  Serial.println("BOOTING NOW...");
+  logMessage("BOOTING NOW...", true);
 
   pinMode(pinWLANbutton, INPUT);
   //digitalWrite(pinWLANbutton, LOW);
@@ -239,7 +240,7 @@ void connectWLANThread() {
       logMessage("SUCCESS: connected to WLAN. IP: ", false);
       logMessage(WiFi.localIP().toString());
 
-      Serial.println("waiting for time sync");
+      logMessage("waiting for time sync", true);
       udp.begin(localTimePort);
       delay(100);
       setSyncProvider(getNtpTime);
@@ -250,7 +251,7 @@ void connectWLANThread() {
         delay(10); 
       }
 
-      Serial.println("finished");
+      logMessage("finished", true);
       udp.stop();
     }
 
@@ -292,21 +293,22 @@ void logMessage(String msg) {
    check the NTP time server for new time info (not implemented by me)
    ============================================================================================================================ */
 time_t getNtpTime() {
+  
   IPAddress ntpServerIP; // NTP server's ip address
 
   while (udp.parsePacket() > 0) ; // discard any previously received packets
-  Serial.println("Transmit NTP Request...");
+  logMessage("Transmit NTP Request...", true);
   // get a random server from the pool
   WiFi.hostByName(ntpServerName, ntpServerIP);
-  Serial.print(ntpServerName);
-  Serial.print(": ");
-  Serial.println(ntpServerIP);
+  logMessage(ntpServerName, false);
+  logMessage(": ", false);
+  Serial.println(ntpServerIP, true);
   sendNTPpacket(ntpServerIP);
   uint32_t beginWait = millis();
   while (millis() - beginWait < 1500) {
     int size = udp.parsePacket();
     if (size >= NTP_PACKET_SIZE) {
-      Serial.println("Receive NTP Response");
+      logMessage("Receive NTP Response", true);
       udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
       unsigned long secsSince1900;
       // convert four bytes starting at location 40 to a long integer
@@ -317,7 +319,7 @@ time_t getNtpTime() {
       return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
     }
   }
-  Serial.println("No NTP Response :-(");
+  logMessage("No NTP Response :-(", true);
   return 0; // return 0 if unable to get the time
 }
 
@@ -327,7 +329,7 @@ time_t getNtpTime() {
    send the get NTP time request (not implemented by me)
    ============================================================================================================================ */
 unsigned long sendNTPpacket(IPAddress& address) {
-  Serial.println("sending NTP packet...");
+  logMessage("sending NTP packet...", true);
   // set all bytes in the buffer to 0
   memset(packetBuffer, 0, NTP_PACKET_SIZE);
   // Initialize values needed to form NTP request
@@ -444,7 +446,7 @@ void sendMQTTThread() {
 
   const char* msg = s.c_str();
  
-  Serial.println(s);
+  logMessage(s, true);
   sendMQTTMessage("weather", msg);
 
 }
@@ -514,13 +516,13 @@ void disconnectMQTT() {
 void sendMQTTMessage(char* topic, const char* message) {
   if (mqttClient.connected()) {
 
-    logMessage("== sending message... ================================");
+    logMessage("== sending message... ================================", true);
 
     
     bool msgOk = mqttClient.publish(topic, message);
 
     if(msgOk != true) {
-      Serial.println("error sending message. message too long? see MQTT_MAX_PACKET_SIZE in PubSubClient.h!");
+      logMessage("error sending message. message too long? see MQTT_MAX_PACKET_SIZE in PubSubClient.h!", true);
     }
     
   } else {
@@ -568,7 +570,8 @@ void distanceAlarmThread() {
 
   long  range = ultrasonic.Ranging(CM);
 
-  if(range < 100) {
+  /* ignore changes directly (5cm) or far away (1m) of the sensor */
+  if(range < 100 && range > 5) {
     String statusMsg = "movement detected!";
   
   
@@ -591,7 +594,6 @@ void distanceAlarmThread() {
   
     const char* msg = s.c_str();
    
-    Serial.println(s);
     sendMQTTMessage("distance", msg);
 
   } else {
