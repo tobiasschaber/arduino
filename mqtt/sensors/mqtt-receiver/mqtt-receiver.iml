@@ -10,5 +10,10 @@
     <orderEntry type="library" name="org.eclipse.paho.client.mqttv3-1.0.2" level="project" />
     <orderEntry type="library" name="unirest-java-1.4.9" level="project" />
     <orderEntry type="library" name="json-20140107" level="project" />
+    <orderEntry type="library" name="org.json" level="project" />
+    <orderEntry type="library" name="commons-codec-1.9" level="project" />
+    <orderEntry type="library" name="org.apache.httpcomponents:httpclient:4.3.6" level="project" />
+    <orderEntry type="library" name="org.apache.httpcomponents:httpasyncclient:4.0.2" level="project" />
+    <orderEntry type="library" name="org.apache.httpcomponents:httpmime:4.3.6" level="project" />
   </component>
 </module>

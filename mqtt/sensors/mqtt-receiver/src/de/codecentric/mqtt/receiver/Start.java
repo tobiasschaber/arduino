@@ -8,12 +8,18 @@ public class Start {
 
     public static void main(String... args) throws Exception {
 
-        MQTTConnector connector = new MQTTConnector("testtopic", "tcp://localhost:1883");
-        MessageHandler handler = new MessageHandler();
-        connector.connect();
+        MQTTConnector weatherConnector = new MQTTConnector("weather", "tcp://localhost:1883", "weather");
+        MQTTConnector distanceConnector = new MQTTConnector("distance", "tcp://localhost:1883", "distance");
+        MessageHandler weatherHandler = new MessageHandler("weather");
+        MessageHandler distanceHandler = new MessageHandler("distance");
+
+        weatherConnector.connect();
+
+        distanceConnector.connect();
 
 
-        connector.registerHandler(handler);
+        weatherConnector.registerHandler(weatherHandler);
+        distanceConnector.registerHandler(distanceHandler);
 
 
         Thread.sleep(30000);

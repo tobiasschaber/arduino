@@ -17,33 +17,17 @@ public class ProtocolTest {
         ServerSocket ssock = new ServerSocket(1883);
         Socket sock;
 
-        for(int i=0; i<100; i++) {
+        for(int i=0; i<10000; i++) {
             System.out.println("waiting for connection");
 
             sock = ssock.accept();
             System.out.println("nehme an");
 
-            Thread.sleep(1500);
-
-            OutputStream os = sock.getOutputStream();
-
-            System.out.println("writing response");
-            byte[] response = "OK OK OK ".getBytes(Charset.forName("UTF-8"));
-            os.write(response);
-            os.flush();
 
 
-
-            Thread reader = new Thread(new ReaderThread(sock.getInputStream()));
+            Thread reader = new ReaderThread(sock);
 
             reader.start();
-
-
-
-
-            Thread.sleep(12000);
-
-            sock.close();
 
 //            int ct =0;
 //

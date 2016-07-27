@@ -15,8 +15,10 @@ import java.util.UUID;
  */
 public class MessageHandler implements MqttCallback {
 
-    public MessageHandler() {
+    private String topic;
 
+    public MessageHandler(String topic) {
+        this.topic = topic;
     }
 
     @Override
@@ -27,28 +29,13 @@ public class MessageHandler implements MqttCallback {
 
     @Override
     public void messageArrived(String s, MqttMessage mqttMessage) throws Exception {
-        System.out.println("GOT MESSAGE :) " + mqttMessage.toString());
-        System.out.println("---");
+        String msg = mqttMessage.toString();
+        System.out.println("==========================================================");
+//        System.out.println(msg);
+//        System.out.println("==========================================================");
 
-        try {
-            HttpResponse<String> postResponse = Unirest.post("http://10.0.3.131:9200/mqtt/test/1")
-                    .header("accept", "application/json")
-                    .header("Content-Type", "application/json")
-                    .basicAuth("esadmin", "esadmin")
-                    .body("{\"name\" : \"test\", \"wert\" : 10}").asString();
-            //        .asJson();
-
-                    System.out.println("---");
-        System.out.println(postResponse.getBody());
-        System.out.println(postResponse.getStatusText());
-        System.out.println(postResponse.getStatus());
-        System.out.println("---");
-        } catch(Exception e) {
-            System.out.println("XX");
-            e.printStackTrace();
-        }
-
-
+        RestSender rs = new RestSender(msg, topic);
+        new Thread(rs).start();
 
     }
 
